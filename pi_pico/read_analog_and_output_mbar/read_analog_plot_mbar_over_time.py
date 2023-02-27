@@ -27,6 +27,8 @@ try:
         plt.cla()
         plt.axis([0, 360, 0, 100])
         plt.plot(vals_time, vals_pressure)
+        plt.xlabel('Versuchslaufzeit / s')
+        plt.ylabel('Druck im Luftballon / mbar')
         plt.pause(0.001)
 
 except serial.serialutil.SerialException:
