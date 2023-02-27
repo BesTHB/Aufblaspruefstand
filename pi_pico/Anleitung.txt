@@ -1,0 +1,6 @@
+rshell -p COM4
+cp pi_pico/main.py /pyboard
+
+
+Putty öffnen:
+  Serial -> COM4 -> Öffnen  (Baudrate ist beliebig, kann also auf 9600 bleiben)
