@@ -5,7 +5,7 @@ try:
     ser = serial.Serial(port, 9600)
 
     while True:
-        sensorVal = int(str(ser.readline(), 'UTF-8').rstrip('\n'))   # read serial, convert to string as UTF-8, rstrip newline-character, convert to int
+        sensorVal = int(str(ser.readline(), 'UTF-8').rstrip('\n'))   # read 16bit serial value, convert to string as UTF-8, rstrip newline-character, convert to int
         print(f'16bit input = {sensorVal}')
 
 except serial.serialutil.SerialException:

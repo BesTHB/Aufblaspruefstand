@@ -1,6 +1,9 @@
 rshell -p COM4
-cp pi_pico/main.py /pyboard
+cp pi_pico/read_analog_output_xy/main.py /pyboard
 
 
 Putty öffnen:
   Serial -> COM4 -> Öffnen  (Baudrate ist beliebig, kann also auf 9600 bleiben)
+
+Oder mit python ausführen:
+  python pi_pico/.../read_analog_output_xy.py
