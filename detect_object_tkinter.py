@@ -21,8 +21,8 @@ class Application:
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
 
         # setup aruco marker
-        self.aruco_params = cv2.aruco.DetectorParameters_create()
-        self.aruco_dict = cv2.aruco.Dictionary_get(cv2.aruco.DICT_4X4_50)
+        self.aruco_params = cv2.aruco.DetectorParameters()
+        self.aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
 
         # init list of images (original and filtered)
         self.imgs = [None, None]
