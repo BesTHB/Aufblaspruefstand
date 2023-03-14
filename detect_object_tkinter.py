@@ -111,7 +111,7 @@ class Application:
             corners, ids, _ = cv2.aruco.detectMarkers(self.imgs[0], self.aruco_dict, parameters=self.aruco_params)
 
             # draw polygon around aruco markers
-            int_corners = np.int0(corners)
+            int_corners = np.intp(corners)
             cv2.polylines(self.imgs[self.img_displayed], int_corners, True, (0, 255, 0), 2)
 
             try:
@@ -143,7 +143,7 @@ class Application:
                     rect = cv2.minAreaRect(c)
                     (x, y), (w, h), angle = rect
                     box = cv2.boxPoints(rect)
-                    box = np.int0(box)
+                    box = np.intp(box)
                     cv2.polylines(self.imgs[self.img_displayed], [box], True, (0, 0, 255), 2)
                     cv2.putText(self.imgs[self.img_displayed], f'[pixel] width: {w:.1f}, height: {h:.1f}', (int(x), int(y)+15), cv2.FONT_HERSHEY_PLAIN, 1, (255, 0, 0), 1)
                     try:
