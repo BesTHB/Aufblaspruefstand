@@ -35,10 +35,10 @@ class Application:
 
         # init image panel
         self.panel = tk.Label(self.win)
-        self.panel.pack(padx=10, pady=10)
+        self.panel.grid(row=0, column=0, columnspan=2, padx=10, pady=10)
 
         # create sliders for hsv
-        self.hsv_min_max = [[0, 30], [85, 255], [150, 255]]
+        self.hsv_min_max = [[60, 90], [95, 255], [50, 255]]
         self.h_min = tk.IntVar()
         self.h_max = tk.IntVar()
         self.s_min = tk.IntVar()
@@ -57,26 +57,26 @@ class Application:
         self.slider_h_max.set(self.hsv_min_max[0][1])
         self.slider_s_max.set(self.hsv_min_max[1][1])
         self.slider_v_max.set(self.hsv_min_max[2][1])
-        self.slider_h_min.pack(expand=True, fill='x', padx=10)
-        self.slider_h_max.pack(expand=True, fill='x', padx=10)
-        self.slider_s_min.pack(expand=True, fill='x', padx=10)
-        self.slider_s_max.pack(expand=True, fill='x', padx=10)
-        self.slider_v_min.pack(expand=True, fill='x', padx=10)
-        self.slider_v_max.pack(expand=True, fill='x', padx=10)
+        self.slider_h_min.grid(row=1, column=0, sticky='nsew')
+        self.slider_h_max.grid(row=1, column=1, sticky='nsew')
+        self.slider_s_min.grid(row=2, column=0, sticky='nsew')
+        self.slider_s_max.grid(row=2, column=1, sticky='nsew')
+        self.slider_v_min.grid(row=3, column=0, sticky='nsew')
+        self.slider_v_max.grid(row=3, column=1, sticky='nsew')
 
         # create slider for findContour
         self.minArea = tk.DoubleVar()
         self.slider_minArea = tk.Scale(self.win, label='minArea', orient='horizontal', from_=0, to=5000, variable=self.minArea, command=lambda x: None)
-        self.slider_minArea.set(400)
-        self.slider_minArea.pack(fill='both', padx=10, pady=10)
+        self.slider_minArea.set(2000)
+        self.slider_minArea.grid(row=4, column=0, sticky='nsew', padx=10, pady=10)
 
         # create reset button
         self.btn_reset = tk.Button(self.win, text='reset', command=self.reset_values)
-        self.btn_reset.pack(fill='both', expand=True, padx=10, pady=10)
+        self.btn_reset.grid(row=5, column=0, sticky='nsew', padx=10, pady=10)
 
         # create button for switching between showing the original or the filtered image
         self.btn_switch_img = tk.Button(self.win, text='switch img', command=self.switch_img)
-        self.btn_switch_img.pack(fill='both', expand=True, padx=10, pady=10)
+        self.btn_switch_img.grid(row=5, column=1, sticky='nsew', padx=10, pady=10)
 
         # start video loop
         self.video_loop()
