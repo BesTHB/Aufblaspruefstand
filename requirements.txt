@@ -1,4 +1,8 @@
-opencv-contrib-python
 matplotlib
-rshell
+opencv-contrib-python
+pyinstaller
+pyqt5
+pyqt5-tools
+pyqtgraph
 pyserial
+rshell

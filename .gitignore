@@ -1,2 +1,9 @@
+*.bak
+*.exe
+dist/
+build/
+__pycache__/
 py_venv/
 pi_pico/*.uf2
+Aufblaspruefstand_GUI.py
+values.ini
