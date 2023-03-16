@@ -1,12 +1,17 @@
 import Aufblaspruefstand_GUI
 from PyQt5 import QtWidgets, QtGui, QtCore, uic
 from datetime import datetime
+import numpy as np
+import cv2
+
 
 class Worker_Video(QtCore.QObject):
     finished = QtCore.pyqtSignal()
+    signal_change_pixmap = QtCore.pyqtSignal(object)
 
     def __init__(self, time_start):
         super().__init__()
+
 
     @QtCore.pyqtSlot()
     def Start(self):
@@ -14,6 +19,21 @@ class Worker_Video(QtCore.QObject):
         In dieser Funktion findet die Videoaufnahme statt.
         Der Aufruf dieser Funktion findet in der Funktion 'Video_starten' statt.
         """
+        
+        # Videosignal holen
+        cap = cv2.VideoCapture(0)
+        
+        # set displayed size of the webcam image/video
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+        
+        while True:
+            ret, cv_img = cap.read()
+            if ret:
+                self.signal_change_pixmap.emit(cv_img)
+        
+        # Videosignal trennen
+        cap.release()
         
         self.finished.emit()
 
@@ -36,13 +56,17 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
             self.minAreaSlider.setValue(self.settings.value('area_min'))
         # Falls Datei nicht vorhanden ist, werden die Werte auf Standardwerte gesetzt.
         except TypeError:
-            self.Werte_zuruecksetzen()
+            self.Slider_zuruecksetzen()
         
         # Zusammenhaenge zwischen Knoepfen in der GUI (Frontend) und Funktionen dieses Skripts (Backend) definieren
-        self.pushButtonReset.clicked.connect(self.Werte_zuruecksetzen)
+        self.pushButtonReset.clicked.connect(self.Slider_zuruecksetzen)
         
         # Startzeit merken
         self.time_start = datetime.now()
+        
+        self.video_width = 640
+        self.video_height = 480
+        self.image_label.resize(self.video_width, self.video_height)
         
         # Video starten
         self.Video_starten()
@@ -59,6 +83,7 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
         # TODO: Signale von Worker und Thread mit Slots (Funktionen) verknuepfen
         self.worker_video.finished.connect(self.thread_video.quit)   # Wenn Worker das Signal 'finished' sendet, wird der Thread beendet
         self.worker_video.finished.connect(lambda: print('Worker finished'))
+        self.worker_video.signal_change_pixmap.connect(lambda ci: self.update_image(ci))
         self.thread_video.started.connect(self.worker_video.Start)  # Wenn Thread gestartet wird, wird im Worker die Funktion 'Start' ausgefuehrt
         self.thread_video.finished.connect(self.Thread_video_deaktivieren)   # Wenn Thread beendet ist, wird die Funktion 'Thread_video_deaktivieren' ausgefuehrt
         
@@ -66,11 +91,20 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
         self.thread_video.start()
 
 
+    def update_image(self, cv_img):
+        rgb_image = cv2.cvtColor(cv_img, cv2.COLOR_BGR2RGB)
+        h, w, ch = rgb_image.shape
+        bytes_per_line = ch * w
+        convert_to_qt_format = QtGui.QImage(rgb_image.data, w, h, bytes_per_line, QtGui.QImage.Format_RGB888)
+        qt_img = convert_to_qt_format.scaled(self.video_width, self.video_height, QtCore.Qt.KeepAspectRatio)
+        self.image_label.setPixmap(QtGui.QPixmap.fromImage(qt_img))
+
+
     def Thread_video_deaktivieren(self):
         self.thread_video = None
 
 
-    def Werte_zuruecksetzen(self):
+    def Slider_zuruecksetzen(self):
         """
         Diese Funktion wird ausgefuehrt, wenn in der GUI der Reset-Button gedrueckt wird.
         """

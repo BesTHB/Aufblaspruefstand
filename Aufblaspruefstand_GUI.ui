@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>840</width>
+    <width>919</width>
     <height>603</height>
    </rect>
   </property>
@@ -18,7 +18,17 @@
     <item>
      <layout class="QVBoxLayout" name="verticalLayout">
       <item>
-       <widget class="QWidget" name="widget" native="true"/>
+       <widget class="QWidget" name="widget" native="true">
+        <layout class="QHBoxLayout" name="horizontalLayout_2">
+         <item>
+          <widget class="QLabel" name="image_label">
+           <property name="text">
+            <string>TextLabel</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
       </item>
       <item>
        <layout class="QGridLayout" name="gridLayoutSlider">
@@ -164,7 +174,24 @@
      </layout>
     </item>
     <item>
-     <widget class="QWidget" name="widget_2" native="true"/>
+     <widget class="QWidget" name="widget_2" native="true">
+      <layout class="QVBoxLayout" name="verticalLayout_2">
+       <item>
+        <widget class="QPushButton" name="pushButtonMessungStarten">
+         <property name="text">
+          <string>Messung starten</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="pushButtonMessungBeenden">
+         <property name="text">
+          <string>Messung beenden</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
     </item>
    </layout>
   </widget>
@@ -173,7 +200,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>840</width>
+     <width>919</width>
      <height>21</height>
     </rect>
    </property>
