@@ -4,6 +4,7 @@ from datetime import datetime
 import numpy as np
 import cv2
 import serial
+import pyqtgraph as pg
 
 # src: https://gist.github.com/docPhil99/ca4da12c9d6f29b9cea137b617c7b8b1
 
@@ -12,10 +13,9 @@ class Worker_Video(QtCore.QObject):
     finished = QtCore.pyqtSignal()
     signal_change_pixmap = QtCore.pyqtSignal(object)
 
-    def __init__(self, time_start, h_min, h_max, s_min, s_max, v_min, v_max):
+    def __init__(self, h_min, h_max, s_min, s_max, v_min, v_max):
         super().__init__()
         self.run_flag = True
-        self.time_start = time_start
         self.h_min = h_min
         self.h_max = h_max
         self.s_min = s_min
@@ -98,6 +98,7 @@ class Worker_Druck(QtCore.QObject):
             self.signal_zeit_druck.emit(dt, p_mbar)
             
         self.finished.emit()
+        self.ser.close()  # Verbindung zur seriellen Schnittstelle trennen
 
 
     def Stop(self):
@@ -129,9 +130,6 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
         self.pushButtonMessungStarten.clicked.connect(self.Messung_starten)
         self.pushButtonMessungBeenden.clicked.connect(self.Messung_beenden)
         
-        # Startzeit merken
-        self.time_start = datetime.now()
-        
         # Werte Video
         self.video_width = 640
         self.video_height = 480
@@ -142,6 +140,31 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
         self.port = 'COM6'  # serieller Port (Pi Pico)
         self.thread_druck = None
         
+        # GraphicsLayoutWidget fuer Plot in der GUI
+        label_styles = {'color':'r', 'font-size':'12pt'}
+        self.plot_GraphicsLayoutWidget.setBackground('w')
+        self.plotitem_p_over_t = self.plot_GraphicsLayoutWidget.addPlot(row=0, col=0)
+        self.plotitem_d_over_t = self.plot_GraphicsLayoutWidget.addPlot(row=1, col=0)
+        self.plotitem_p_over_d = self.plot_GraphicsLayoutWidget.addPlot(row=2, col=0)
+        self.plotitem_d_over_t.setXLink(self.plotitem_p_over_t)
+        self.plotitem_p_over_t.setMouseEnabled(x=False, y=False)
+        self.plotitem_d_over_t.setMouseEnabled(x=False, y=False)
+        self.plotitem_p_over_d.setMouseEnabled(x=False, y=False)
+        self.plotitem_p_over_t.setLabel('left', 'Druck / mbar', **label_styles)
+        self.plotitem_d_over_t.setLabel('left', 'Durchmesser / mm', **label_styles)
+        self.plotitem_d_over_t.setLabel('bottom', 'Versuchslaufzeit / s', **label_styles)
+        self.plotitem_p_over_d.setLabel('left', 'Druck / mbar', **label_styles)
+        self.plotitem_p_over_d.setLabel('bottom', 'Durchmesser / mm', **label_styles)
+        self.scatterplotitem_p_over_t = pg.ScatterPlotItem(size=10, brush=pg.mkBrush(0, 86, 148, 120))
+        self.scatterplotitem_d_over_t = pg.ScatterPlotItem(size=10, brush=pg.mkBrush(0, 86, 148, 120))
+        self.scatterplotitem_p_over_d = pg.ScatterPlotItem(size=10, brush=pg.mkBrush(0, 86, 148, 120))
+        self.plotitem_p_over_t.addItem(self.scatterplotitem_p_over_t)
+        self.plotitem_d_over_t.addItem(self.scatterplotitem_d_over_t)
+        self.plotitem_p_over_d.addItem(self.scatterplotitem_p_over_d)
+        self.plotdataitem_p_over_t = self.plotitem_p_over_t.plot()
+        self.plotdataitem_d_over_t = self.plotitem_d_over_t.plot()
+        self.plotdataitem_p_over_d = self.plotitem_p_over_d.plot()
+        
         # Interaktion mit der GUI aktivieren
         self.interaktion_aktivieren()
         
@@ -150,6 +173,9 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
     
     
     def Messung_starten(self):
+        # Startzeit merken
+        self.time_start = datetime.now()
+    
         # initialize lists for time, pressure and diameter
         self.time_pressure = []
         self.time_diameter = []
@@ -169,6 +195,11 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
         self.worker_druck.signal_zeit_druck.connect(lambda z, d: self.update_plot_p_over_t(z, d))
         self.thread_druck.started.connect(self.worker_druck.Start)  # Wenn Thread gestartet wird, wird im Worker die Funktion 'Start' ausgefuehrt
         self.thread_druck.finished.connect(self.Thread_druck_deaktivieren)   # Wenn Thread beendet ist, wird die Funktion 'Thread_druck_deaktivieren' ausgefuehrt
+
+        # Plotdaten der Auswertung leeren
+        self.scatterplotitem_p_over_t.clear()
+        self.scatterplotitem_d_over_t.clear()
+        self.scatterplotitem_p_over_d.clear()
 
         # Interaktion mit der GUI deaktivieren
         self.interaktion_deaktivieren()
@@ -195,7 +226,7 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
 
     def update_plot_p_over_t(self, dt, p_mbar):
         #print(dt, p_mbar)
-        pass
+        self.scatterplotitem_p_over_t.addPoints(x=[dt], y=[p_mbar])
 
 
     def Thread_druck_deaktivieren(self):
@@ -204,8 +235,7 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
 
     def Video_starten(self):
         # Worker und Thread initialisieren (jeweils ohne 'parent', Quelle: https://stackoverflow.com/a/33453124)
-        self.worker_video = Worker_Video(self.time_start,
-                                         self.hMinSlider.value(),
+        self.worker_video = Worker_Video(self.hMinSlider.value(),
                                          self.hMaxSlider.value(),
                                          self.sMinSlider.value(),
                                          self.sMaxSlider.value(),

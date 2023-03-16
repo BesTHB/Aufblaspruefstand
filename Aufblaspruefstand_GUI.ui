@@ -177,6 +177,9 @@
      <widget class="QWidget" name="widget_2" native="true">
       <layout class="QVBoxLayout" name="verticalLayout_2">
        <item>
+        <widget class="GraphicsLayoutWidget" name="plot_GraphicsLayoutWidget"/>
+       </item>
+       <item>
         <widget class="QPushButton" name="pushButtonMessungStarten">
          <property name="text">
           <string>Messung starten</string>
@@ -207,6 +210,13 @@
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>GraphicsLayoutWidget</class>
+   <extends>QGraphicsView</extends>
+   <header>pyqtgraph</header>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections/>
 </ui>
