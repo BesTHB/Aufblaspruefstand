@@ -267,7 +267,7 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
         cv_img_hsv = cv2.cvtColor(cv_img, cv2.COLOR_BGR2HSV)
         
         hsv_min = np.array([self.hMinSlider.value(), self.sMinSlider.value(), self.vMinSlider.value()])
-        hsv_max = np.array([self.hMaxSlider.value(), self.hMaxSlider.value(), self.hMaxSlider.value()])
+        hsv_max = np.array([self.hMaxSlider.value(), self.sMaxSlider.value(), self.vMaxSlider.value()])
 
         color_mask = cv2.inRange(cv_img_hsv, hsv_min, hsv_max)
         self.imgs[1] = cv2.bitwise_and(self.imgs[0], self.imgs[0], mask=color_mask)
@@ -382,13 +382,13 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
         """
         Diese Funktion wird ausgefuehrt, wenn in der GUI der Reset-Button gedrueckt wird.
         """
-        self.hMinSlider.setValue(60)
+        self.hMinSlider.setValue(54)
         self.hMaxSlider.setValue(88)
-        self.sMinSlider.setValue(80)
+        self.sMinSlider.setValue(52)
         self.sMaxSlider.setValue(255)
-        self.vMinSlider.setValue(90)
+        self.vMinSlider.setValue(100)
         self.vMaxSlider.setValue(255)
-        self.minAreaSlider.setValue(60)
+        self.minAreaSlider.setValue(2400)
     
     
     def closeEvent(self, event):
