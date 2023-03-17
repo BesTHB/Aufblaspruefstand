@@ -7,3 +7,4 @@ pyqt5-tools
 pyqtgraph
 pyserial
 rshell
+scipy
