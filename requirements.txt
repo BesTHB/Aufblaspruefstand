@@ -1,5 +1,6 @@
 matplotlib
 opencv-contrib-python
+pandas
 pyinstaller
 pyqt5
 pyqt5-tools

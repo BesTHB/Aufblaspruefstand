@@ -2,6 +2,7 @@
 *.exe
 dist/
 build/
+Messungen/
 __pycache__/
 py_venv/
 pi_pico/*.uf2

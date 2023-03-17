@@ -5,6 +5,8 @@ import numpy as np
 import cv2
 import serial
 import pyqtgraph as pg
+import pandas as pd
+from pathlib import Path
 
 # src: https://gist.github.com/docPhil99/ca4da12c9d6f29b9cea137b617c7b8b1
 
@@ -49,12 +51,11 @@ class Worker_Video(QtCore.QObject):
 
 class Worker_Druck(QtCore.QObject):
     finished = QtCore.pyqtSignal()
-    signal_zeit_druck = QtCore.pyqtSignal(float, float)
+    signal_zeit_druck = QtCore.pyqtSignal(object, float)
 
-    def __init__(self, time_start, port):
+    def __init__(self, port):
         super().__init__()
         self.run_flag = True
-        self.time_start = time_start
         self.ser = serial.Serial(port, 9600)
 
         # Werte zur Konvertierung des seriellen Signals von Volt in mbar definieren
@@ -66,9 +67,6 @@ class Worker_Druck(QtCore.QObject):
     @QtCore.pyqtSlot()
     def Start(self):
         while self.run_flag:
-            # Zeitdifferenz zur Startzeit berechnen
-            dt = (datetime.now() - self.time_start).total_seconds()
-
             # read 16bit serial value, convert to string as UTF-8, rstrip newline-character and ...
             try:
                 # convert to int
@@ -76,6 +74,9 @@ class Worker_Druck(QtCore.QObject):
             except ValueError:
                 # convert to float
                 sensorVal = float(str(self.ser.readline(), 'UTF-8').rstrip('\n'))
+
+            # Zeitpunkt der Messung festhalten
+            t_druck = datetime.now()
 
             # convert 16bit integer to Volt
             voltage = sensorVal*self.v_in/(2**16)
@@ -88,7 +89,7 @@ class Worker_Druck(QtCore.QObject):
             # convert psi to mbar
             p_mbar = 68.9476*p_psi
 
-            self.signal_zeit_druck.emit(dt, p_mbar)
+            self.signal_zeit_druck.emit(t_druck, p_mbar)
 
         self.finished.emit()
         self.ser.close()  # Verbindung zur seriellen Schnittstelle trennen
@@ -180,6 +181,10 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
         # Startzeit merken
         self.time_start = datetime.now()
 
+        # Output-Ordner anlegen
+        self.outdir = f'./Messungen/{self.time_start.strftime("%Y_%m_%d__%H_%M_%S")}/'   # mit '/' am Ende!
+        Path(self.outdir).mkdir(parents=True)
+
         # initialize lists for time, pressure and diameter
         self.time_pressure = []
         self.time_diameter = []
@@ -187,7 +192,7 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
         self.diameter = []
 
         # Worker und Thread initialisieren (jeweils ohne 'parent', Quelle: https://stackoverflow.com/a/33453124)
-        self.worker_druck = Worker_Druck(self.time_start, self.port)
+        self.worker_druck = Worker_Druck(self.port)
         self.thread_druck = QtCore.QThread()
 
         # Worker dem Thread hinzufuegen
@@ -196,7 +201,7 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
         # Signale von Workern und Threads mit Slots (Funktionen) verknuepfen
         self.worker_druck.finished.connect(self.thread_druck.quit)   # Wenn Worker das Signal 'finished' sendet, wird der Thread beendet
         self.worker_druck.finished.connect(lambda: print('Worker finished'))
-        self.worker_druck.signal_zeit_druck.connect(lambda z, d: self.update_plot_p_over_t(z, d))
+        self.worker_druck.signal_zeit_druck.connect(lambda t_druck, p_mbar: self.update_lists_and_plot_p_over_t(t_druck, p_mbar))
         self.thread_druck.started.connect(self.worker_druck.Start)  # Wenn Thread gestartet wird, wird im Worker die Funktion 'Start' ausgefuehrt
         self.thread_druck.finished.connect(self.Thread_druck_deaktivieren)   # Wenn Thread beendet ist, wird die Funktion 'Thread_druck_deaktivieren' ausgefuehrt
 
@@ -221,6 +226,17 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
 
         self.worker_druck.Stop()
 
+        # Pandas DataFrames anlegen und speichern
+        outfile_druck = self.outdir + 'Druck.txt'
+        df_druck = pd.DataFrame({'Zeitpunkt Druckmessung': self.time_pressure, 'Druck / mbar': self.pressure})
+        df_druck.to_csv(outfile_druck, sep=';', encoding='utf-8', index=False, header=True)
+        print(f'Speichere aufgezeichnete Druckmessung in {outfile_druck} ab.')
+
+        outfile_durchmesser = self.outdir + 'Durchmesser.txt'
+        df_durchmesser = pd.DataFrame({'Zeitpunkt Durchmessermessung': self.time_diameter, 'Durchmesser / mm': self.diameter})
+        df_durchmesser.to_csv(outfile_durchmesser, sep=';', encoding='utf-8', index=False, header=True)
+        print(f'Speichere aufgezeichnete Durchmessermessung in {outfile_durchmesser} ab.')
+
         # Interaktion mit der GUI aktivieren
         self.interaktion_aktivieren()
 
@@ -228,8 +244,14 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
         return
 
 
-    def update_plot_p_over_t(self, dt, p_mbar):
+    def update_lists_and_plot_p_over_t(self, t_druck, p_mbar):
+        # Plot aktualisieren
+        dt = (t_druck - self.time_start).total_seconds()
         self.scatterplotitem_p_over_t.addPoints(x=[dt], y=[p_mbar])
+
+        # Werte zum spaeteren Herausschreiben sichern
+        self.time_pressure.append(t_druck)
+        self.pressure.append(p_mbar)
 
 
     def update_plot_d_over_t(self, dt, d):
@@ -316,9 +338,8 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
                 cv2.polylines(self.imgs[self.img_index], [box], True, (255, 0, 0), 2)
                 cv2.putText(self.imgs[self.img_index], f'[pixel] width: {w:.1f}, height: {h:.1f}', (int(x), int(y)+15), cv2.FONT_HERSHEY_PLAIN, 1, (0, 0, 255), 1)
                 try:
-                    w_mm = w/pixel_mm_ratio
-                    h_mm = h/pixel_mm_ratio
-                    cv2.putText(self.imgs[self.img_index], f'[mm] width: {w_mm:.2f}, height: {h_mm:.2f}', (int(x), int(y)+30), cv2.FONT_HERSHEY_PLAIN, 1, (0, 0, 255), 1)
+                    durchmesser = w/pixel_mm_ratio
+                    cv2.putText(self.imgs[self.img_index], f'[mm] width: {durchmesser:.2f}, height: {h/pixel_mm_ratio:.2f}', (int(x), int(y)+30), cv2.FONT_HERSHEY_PLAIN, 1, (0, 0, 255), 1)
 
                     # Vorsicht: Das Originalbild sollte mit HSV so eingestellt sein, dass nur EINE Box (naemlich um den Luftballon) gezeichnet wird.
                     # Sonst werden naemlich die Weiten mehrerer Objekte geplottet!
@@ -327,8 +348,14 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
                         # Der Durchmesser soll im gleichen Takt gemessen werden, wie der Druck, also alle self.dt_serial Sekunden
                         now = datetime.now()
                         if (now-self.time_last_diameter_query).total_seconds() >= self.dt_serial:
+                            # Plot aktualisieren
                             dt = (now - self.time_start).total_seconds()
-                            self.update_plot_d_over_t(dt, w_mm)
+                            self.update_plot_d_over_t(dt, durchmesser)
+
+                            # Werte zum spaeteren Herausschreiben sichern
+                            self.time_diameter.append(now)
+                            self.diameter.append(durchmesser)
+
                             self.time_last_diameter_query = datetime.now()
 
                 except UnboundLocalError:
