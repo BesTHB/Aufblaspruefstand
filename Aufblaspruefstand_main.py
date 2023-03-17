@@ -228,12 +228,12 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
 
         # Pandas DataFrames anlegen und speichern
         outfile_druck = self.outdir + 'Druck.txt'
-        df_druck = pd.DataFrame({'Zeitpunkt Druckmessung': self.time_pressure, 'Druck / mbar': self.pressure})
+        df_druck = pd.DataFrame({'Zeitpunkt Messung': self.time_pressure, 'Druck / mbar': self.pressure})
         df_druck.to_csv(outfile_druck, sep=';', encoding='utf-8', index=False, header=True)
         print(f'Speichere aufgezeichnete Druckmessung in {outfile_druck} ab.')
 
         outfile_durchmesser = self.outdir + 'Durchmesser.txt'
-        df_durchmesser = pd.DataFrame({'Zeitpunkt Durchmessermessung': self.time_diameter, 'Durchmesser / mm': self.diameter})
+        df_durchmesser = pd.DataFrame({'Zeitpunkt Messung': self.time_diameter, 'Durchmesser / mm': self.diameter})
         df_durchmesser.to_csv(outfile_durchmesser, sep=';', encoding='utf-8', index=False, header=True)
         print(f'Speichere aufgezeichnete Durchmessermessung in {outfile_durchmesser} ab.')
 
