@@ -24,22 +24,22 @@ class Worker_Video(QtCore.QObject):
         In dieser Funktion findet die Videoaufnahme statt.
         Der Aufruf dieser Funktion findet in der Funktion 'Video_starten' statt.
         """
-        
+
         # Videosignal holen
         cap = cv2.VideoCapture(0)
-        
+
         # set displayed size of the webcam image/video
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
-        
+
         while self.run_flag:
             ret, cv_img = cap.read()
             if ret:
                 self.signal_change_pixmap.emit(cv_img)
-        
+
         # Videosignal trennen
         cap.release()
-        
+
         self.finished.emit()
 
 
@@ -50,14 +50,13 @@ class Worker_Video(QtCore.QObject):
 class Worker_Druck(QtCore.QObject):
     finished = QtCore.pyqtSignal()
     signal_zeit_druck = QtCore.pyqtSignal(float, float)
-    
+
     def __init__(self, time_start, port):
         super().__init__()
         self.run_flag = True
         self.time_start = time_start
         self.ser = serial.Serial(port, 9600)
 
-        
         # Werte zur Konvertierung des seriellen Signals von Volt in mbar definieren
         self.v_in = 3.3                   # input voltage in V
         self.v_0  = self.v_in/10          # voltage at  0psi (10% of v_in)
@@ -69,7 +68,7 @@ class Worker_Druck(QtCore.QObject):
         while self.run_flag:
             # Zeitdifferenz zur Startzeit berechnen
             dt = (datetime.now() - self.time_start).total_seconds()
-        
+
             # read 16bit serial value, convert to string as UTF-8, rstrip newline-character and ...
             try:
                 # convert to int
@@ -77,20 +76,20 @@ class Worker_Druck(QtCore.QObject):
             except ValueError:
                 # convert to float
                 sensorVal = float(str(self.ser.readline(), 'UTF-8').rstrip('\n'))
-            
+
             # convert 16bit integer to Volt
             voltage = sensorVal*self.v_in/(2**16)
-            
+
             # convert Volt to psi (0.1*v_in == v_0 == 0psi ; 0.9*v_in == v_10 == 10psi)
             m = 10/(self.v_10-self.v_0)
             b = -self.v_0*m
             p_psi = m*voltage + b
-    
+
             # convert psi to mbar
             p_mbar = 68.9476*p_psi
-            
+
             self.signal_zeit_druck.emit(dt, p_mbar)
-            
+
         self.finished.emit()
         self.ser.close()  # Verbindung zur seriellen Schnittstelle trennen
 
@@ -104,7 +103,7 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
         super(self.__class__, self).__init__(*args, **kwargs)  # Einfach gesagt: das erlaubt uns, Variablen aus der GUI-Datei aufzurufen
 
         self.setupUi(self)
-        
+
         # Datei fuer Einstellungen des Nutzers definieren und Werte daraus laden
         self.settings = QtCore.QSettings('./values.ini', QtCore.QSettings.IniFormat)
         try:
@@ -118,31 +117,33 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
         # Falls Datei nicht vorhanden ist, werden die Werte auf Standardwerte gesetzt
         except TypeError:
             self.Slider_zuruecksetzen()
-        
+
         # Zusammenhaenge zwischen Knoepfen (etc.) in der GUI (Frontend) und Funktionen dieses Skripts (Backend) definieren
         self.pushButtonReset.clicked.connect(self.Slider_zuruecksetzen)
         self.pushButtonMessungStarten.clicked.connect(self.Messung_starten)
         self.pushButtonMessungBeenden.clicked.connect(self.Messung_beenden)
         self.pushButtonBildWechseln.clicked.connect(self.Bild_wechseln)
-        
+
         # Werte Video
         self.video_width = 640
         self.video_height = 480
         self.image_label.resize(self.video_width, self.video_height)
         self.thread_video = None
-        
+        self.time_last_diameter_query = datetime.now()
+
         # Liste fuer Bilder und Index des anzuzeigenden Bildes (original, gefiltert) initialisieren
         self.imgs = [None, None]
         self.img_index = 0
-        
+
         # setup aruco marker
         self.aruco_params = cv2.aruco.DetectorParameters()
         self.aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
-        
+
         # Werte Druckmessung
         self.port = 'COM6'  # serieller Port (Pi Pico)
         self.thread_druck = None
-        
+        self.dt_serial = 0.2  # Zeitdifferenz zwischen zwei Eingaengen des Druckmesssignals der seriellen Schnittstelle
+
         # GraphicsLayoutWidget fuer Plot in der GUI
         label_styles = {'color':'r', 'font-size':'12pt'}
         self.plot_GraphicsLayoutWidget.setBackground('w')
@@ -167,31 +168,31 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
         self.plotdataitem_p_over_t = self.plotitem_p_over_t.plot()
         self.plotdataitem_d_over_t = self.plotitem_d_over_t.plot()
         self.plotdataitem_p_over_d = self.plotitem_p_over_d.plot()
-        
+
         # Interaktion mit der GUI aktivieren
         self.interaktion_aktivieren()
-        
+
         # Video starten
         self.Video_starten()
-    
-    
+
+
     def Messung_starten(self):
         # Startzeit merken
         self.time_start = datetime.now()
-    
+
         # initialize lists for time, pressure and diameter
         self.time_pressure = []
         self.time_diameter = []
         self.pressure = []
         self.diameter = []
-        
+
         # Worker und Thread initialisieren (jeweils ohne 'parent', Quelle: https://stackoverflow.com/a/33453124)
         self.worker_druck = Worker_Druck(self.time_start, self.port)
         self.thread_druck = QtCore.QThread()
-        
+
         # Worker dem Thread hinzufuegen
         self.worker_druck.moveToThread(self.thread_druck)
-        
+
         # Signale von Workern und Threads mit Slots (Funktionen) verknuepfen
         self.worker_druck.finished.connect(self.thread_druck.quit)   # Wenn Worker das Signal 'finished' sendet, wird der Thread beendet
         self.worker_druck.finished.connect(lambda: print('Worker finished'))
@@ -219,7 +220,7 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
                 return
 
         self.worker_druck.Stop()
-        
+
         # Interaktion mit der GUI aktivieren
         self.interaktion_aktivieren()
 
@@ -228,8 +229,11 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
 
 
     def update_plot_p_over_t(self, dt, p_mbar):
-        #print(dt, p_mbar)
         self.scatterplotitem_p_over_t.addPoints(x=[dt], y=[p_mbar])
+
+
+    def update_plot_d_over_t(self, dt, d):
+        self.scatterplotitem_d_over_t.addPoints(x=[dt], y=[d])
 
 
     def Thread_druck_deaktivieren(self):
@@ -247,17 +251,17 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
         # Worker und Thread initialisieren (jeweils ohne 'parent', Quelle: https://stackoverflow.com/a/33453124)
         self.worker_video = Worker_Video()
         self.thread_video = QtCore.QThread()
-        
+
         # Worker dem Thread hinzufuegen
         self.worker_video.moveToThread(self.thread_video)
-        
+
         # Signale von Workern und Threads mit Slots (Funktionen) verknuepfen
         self.worker_video.finished.connect(self.thread_video.quit)   # Wenn Worker das Signal 'finished' sendet, wird der Thread beendet
         self.worker_video.finished.connect(lambda: print('Worker finished'))
         self.worker_video.signal_change_pixmap.connect(lambda cv_img: self.update_image(cv_img))
         self.thread_video.started.connect(self.worker_video.Start)  # Wenn Thread gestartet wird, wird im Worker die Funktion 'Start' ausgefuehrt
         self.thread_video.finished.connect(self.Thread_video_deaktivieren)   # Wenn Thread beendet ist, wird die Funktion 'Thread_video_deaktivieren' ausgefuehrt
-        
+
         # Thread starten
         self.thread_video.start()
 
@@ -265,7 +269,7 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
     def update_image(self, cv_img):
         self.imgs[0] = cv2.cvtColor(cv_img, cv2.COLOR_BGR2RGB)
         cv_img_hsv = cv2.cvtColor(cv_img, cv2.COLOR_BGR2HSV)
-        
+
         hsv_min = np.array([self.hMinSlider.value(), self.sMinSlider.value(), self.vMinSlider.value()])
         hsv_max = np.array([self.hMaxSlider.value(), self.sMaxSlider.value(), self.vMaxSlider.value()])
 
@@ -278,7 +282,7 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
         # draw polygon around aruco markers
         int_corners = np.intp(corners)
         cv2.polylines(self.imgs[self.img_index], int_corners, True, (0, 255, 0), 2)
-        
+
         try:
             # calculate the length of the polygon around the first detected aruco marker
             aruco_perimeter = cv2.arcLength(corners[0], True)  # in pixels
@@ -312,8 +316,21 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
                 cv2.polylines(self.imgs[self.img_index], [box], True, (255, 0, 0), 2)
                 cv2.putText(self.imgs[self.img_index], f'[pixel] width: {w:.1f}, height: {h:.1f}', (int(x), int(y)+15), cv2.FONT_HERSHEY_PLAIN, 1, (0, 0, 255), 1)
                 try:
-                    cv2.putText(self.imgs[self.img_index], f'[mm] width: {w/pixel_mm_ratio:.2f}, height: {h/pixel_mm_ratio:.2f}', (int(x), int(y)+30), cv2.FONT_HERSHEY_PLAIN, 1, (0, 0, 255), 1)
-            
+                    w_mm = w/pixel_mm_ratio
+                    h_mm = h/pixel_mm_ratio
+                    cv2.putText(self.imgs[self.img_index], f'[mm] width: {w_mm:.2f}, height: {h_mm:.2f}', (int(x), int(y)+30), cv2.FONT_HERSHEY_PLAIN, 1, (0, 0, 255), 1)
+
+                    # Vorsicht: Das Originalbild sollte mit HSV so eingestellt sein, dass nur EINE Box (naemlich um den Luftballon) gezeichnet wird.
+                    # Sonst werden naemlich die Weiten mehrerer Objekte geplottet!
+                    if self.messung_aktiv:
+
+                        # Der Durchmesser soll im gleichen Takt gemessen werden, wie der Druck, also alle self.dt_serial Sekunden
+                        now = datetime.now()
+                        if (now-self.time_last_diameter_query).total_seconds() >= self.dt_serial:
+                            dt = (now - self.time_start).total_seconds()
+                            self.update_plot_d_over_t(dt, w_mm)
+                            self.time_last_diameter_query = datetime.now()
+
                 except UnboundLocalError:
                     # if pixel_mm_ratio is not present, pass
                     pass
@@ -345,7 +362,8 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
         self.pushButtonMessungStarten.setEnabled(True)
         self.pushButtonMessungBeenden.setEnabled(False)
         self.pushButtonReset.setEnabled(True)
-        
+        self.pushButtonBildWechseln.setEnabled(True)
+
         # Slider aktivieren
         self.hMinSlider.setEnabled(True)
         self.hMaxSlider.setEnabled(True)
@@ -354,7 +372,7 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
         self.vMinSlider.setEnabled(True)
         self.vMaxSlider.setEnabled(True)
         self.minAreaSlider.setEnabled(True)
-        
+
         # Flag, ob Messung aktiv
         self.messung_aktiv = False
 
@@ -364,7 +382,8 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
         self.pushButtonMessungStarten.setEnabled(False)
         self.pushButtonMessungBeenden.setEnabled(True)
         self.pushButtonReset.setEnabled(False)
-        
+        self.pushButtonBildWechseln.setEnabled(False)
+
         # Slider deaktivieren
         self.hMinSlider.setEnabled(False)
         self.hMaxSlider.setEnabled(False)
@@ -373,7 +392,7 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
         self.vMinSlider.setEnabled(False)
         self.vMaxSlider.setEnabled(False)
         self.minAreaSlider.setEnabled(False)
-        
+
         # Flag, ob Messung aktiv
         self.messung_aktiv = True
 
@@ -384,13 +403,13 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
         """
         self.hMinSlider.setValue(54)
         self.hMaxSlider.setValue(88)
-        self.sMinSlider.setValue(52)
+        self.sMinSlider.setValue(81)
         self.sMaxSlider.setValue(255)
-        self.vMinSlider.setValue(100)
+        self.vMinSlider.setValue(61)
         self.vMaxSlider.setValue(255)
         self.minAreaSlider.setValue(2400)
-    
-    
+
+
     def closeEvent(self, event):
         # Feststellen, ob ein Thread aktiv ist
         if self.thread_video is not None and self.thread_video.isRunning():
@@ -398,7 +417,7 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
             #self.thread_video.requestInterruption()    # Dieser Request muss im Worker explizit verarbeitet werden
         if self.thread_druck is not None and self.thread_druck.isRunning():
             self.thread_druck.requestInterruption()
-        
+
         # TODO: AskYesNo, ob eingestellte Werte beim Beenden gespeichert werden sollen
         self.settings.setValue('h_min', self.hMinSlider.value())
         self.settings.setValue('h_max', self.hMaxSlider.value())
