@@ -13,15 +13,9 @@ class Worker_Video(QtCore.QObject):
     finished = QtCore.pyqtSignal()
     signal_change_pixmap = QtCore.pyqtSignal(object)
 
-    def __init__(self, h_min, h_max, s_min, s_max, v_min, v_max):
+    def __init__(self):
         super().__init__()
         self.run_flag = True
-        self.h_min = h_min
-        self.h_max = h_max
-        self.s_min = s_min
-        self.s_max = s_max
-        self.v_min = v_min
-        self.v_max = v_max
 
 
     @QtCore.pyqtSlot()
@@ -125,16 +119,25 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
         except TypeError:
             self.Slider_zuruecksetzen()
         
-        # Zusammenhaenge zwischen Knoepfen in der GUI (Frontend) und Funktionen dieses Skripts (Backend) definieren
+        # Zusammenhaenge zwischen Knoepfen (etc.) in der GUI (Frontend) und Funktionen dieses Skripts (Backend) definieren
         self.pushButtonReset.clicked.connect(self.Slider_zuruecksetzen)
         self.pushButtonMessungStarten.clicked.connect(self.Messung_starten)
         self.pushButtonMessungBeenden.clicked.connect(self.Messung_beenden)
+        self.pushButtonBildWechseln.clicked.connect(self.Bild_wechseln)
         
         # Werte Video
         self.video_width = 640
         self.video_height = 480
         self.image_label.resize(self.video_width, self.video_height)
         self.thread_video = None
+        
+        # Liste fuer Bilder und Index des anzuzeigenden Bildes (original, gefiltert) initialisieren
+        self.imgs = [None, None]
+        self.img_index = 0
+        
+        # setup aruco marker
+        self.aruco_params = cv2.aruco.DetectorParameters()
+        self.aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
         
         # Werte Druckmessung
         self.port = 'COM6'  # serieller Port (Pi Pico)
@@ -233,14 +236,16 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
         self.thread_druck = None
 
 
+    def Bild_wechseln(self):
+        if self.img_index == 0:
+            self.img_index = 1
+        elif self.img_index == 1:
+            self.img_index = 0
+
+
     def Video_starten(self):
         # Worker und Thread initialisieren (jeweils ohne 'parent', Quelle: https://stackoverflow.com/a/33453124)
-        self.worker_video = Worker_Video(self.hMinSlider.value(),
-                                         self.hMaxSlider.value(),
-                                         self.sMinSlider.value(),
-                                         self.sMaxSlider.value(),
-                                         self.vMinSlider.value(),
-                                         self.vMaxSlider.value())
+        self.worker_video = Worker_Video()
         self.thread_video = QtCore.QThread()
         
         # Worker dem Thread hinzufuegen
@@ -249,7 +254,7 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
         # Signale von Workern und Threads mit Slots (Funktionen) verknuepfen
         self.worker_video.finished.connect(self.thread_video.quit)   # Wenn Worker das Signal 'finished' sendet, wird der Thread beendet
         self.worker_video.finished.connect(lambda: print('Worker finished'))
-        self.worker_video.signal_change_pixmap.connect(lambda ci: self.update_image(ci))
+        self.worker_video.signal_change_pixmap.connect(lambda cv_img: self.update_image(cv_img))
         self.thread_video.started.connect(self.worker_video.Start)  # Wenn Thread gestartet wird, wird im Worker die Funktion 'Start' ausgefuehrt
         self.thread_video.finished.connect(self.Thread_video_deaktivieren)   # Wenn Thread beendet ist, wird die Funktion 'Thread_video_deaktivieren' ausgefuehrt
         
@@ -258,12 +263,77 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
 
 
     def update_image(self, cv_img):
-        cv_img_rgb = cv2.cvtColor(cv_img, cv2.COLOR_BGR2RGB)   # cv2.COLOR_BGR2HSV
-        h, w, ch = cv_img_rgb.shape
+        self.imgs[0] = cv2.cvtColor(cv_img, cv2.COLOR_BGR2RGB)
+        cv_img_hsv = cv2.cvtColor(cv_img, cv2.COLOR_BGR2HSV)
+        
+        hsv_min = np.array([self.hMinSlider.value(), self.sMinSlider.value(), self.vMinSlider.value()])
+        hsv_max = np.array([self.hMaxSlider.value(), self.hMaxSlider.value(), self.hMaxSlider.value()])
+
+        color_mask = cv2.inRange(cv_img_hsv, hsv_min, hsv_max)
+        self.imgs[1] = cv2.bitwise_and(self.imgs[0], self.imgs[0], mask=color_mask)
+
+        # detect aruco markers in current webcam image
+        corners, ids, _ = cv2.aruco.detectMarkers(self.imgs[0], self.aruco_dict, parameters=self.aruco_params)
+
+        # draw polygon around aruco markers
+        int_corners = np.intp(corners)
+        cv2.polylines(self.imgs[self.img_index], int_corners, True, (0, 255, 0), 2)
+        
+        try:
+            # calculate the length of the polygon around the first detected aruco marker
+            aruco_perimeter = cv2.arcLength(corners[0], True)  # in pixels
+
+            # translate pixels to mm
+            # (since the aruco marker is a square of side length 50mm, the length of the surrounding polygon must be 200mm)
+            pixel_mm_ratio = aruco_perimeter / 200
+
+            # calculate center of polygon and widths of aruco marker and display a text
+            x, y = corners[0][0].mean(axis=0)
+            s1, s2 = self.calc_aruco_widths(corners[0][0])
+            cv2.putText(self.imgs[self.img_index], f'ID: {ids[0][0]}', (int(x), int(y)), cv2.FONT_HERSHEY_PLAIN, 1, (0, 255, 0), 1)
+            cv2.putText(self.imgs[self.img_index], f'[pixel] {s1:.2f} x {s2:.2f}', (int(x), int(y)-30), cv2.FONT_HERSHEY_PLAIN, 1, (0, 255, 0), 1)
+            cv2.putText(self.imgs[self.img_index], f'[mm] {s1/pixel_mm_ratio:.2f} x {s2/pixel_mm_ratio:.2f}', (int(x), int(y)-15), cv2.FONT_HERSHEY_PLAIN, 1, (0, 255, 0), 1)
+
+        # if currently no aruco marker is detected in the webcam image, corners[0] will throw an IndexError
+        except IndexError:
+            pass
+
+        # detect contours, conversion to grayscale is necessary for findContours
+        img_gray = cv2.cvtColor(self.imgs[1], cv2.COLOR_BGR2GRAY)
+        contours, _ = cv2.findContours(img_gray, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        for c in contours:
+            area = cv2.contourArea(c)
+            if area >= self.minAreaSlider.value():
+                rect = cv2.minAreaRect(c)
+                (x, y), (w, h), angle = rect
+                box = cv2.boxPoints(rect)
+                box = np.intp(box)
+                cv2.polylines(self.imgs[self.img_index], [box], True, (255, 0, 0), 2)
+                cv2.putText(self.imgs[self.img_index], f'[pixel] width: {w:.1f}, height: {h:.1f}', (int(x), int(y)+15), cv2.FONT_HERSHEY_PLAIN, 1, (0, 0, 255), 1)
+                try:
+                    cv2.putText(self.imgs[self.img_index], f'[mm] width: {w/pixel_mm_ratio:.2f}, height: {h/pixel_mm_ratio:.2f}', (int(x), int(y)+30), cv2.FONT_HERSHEY_PLAIN, 1, (0, 0, 255), 1)
+            
+                except UnboundLocalError:
+                    # if pixel_mm_ratio is not present, pass
+                    pass
+
+        # Das Bild in ein QImage konvertieren
+        h, w, ch = self.imgs[self.img_index].shape
         bytes_per_line = ch * w
-        qt_img = QtGui.QImage(cv_img_rgb.data, w, h, bytes_per_line, QtGui.QImage.Format_RGB888)
+        qt_img = QtGui.QImage(self.imgs[self.img_index].data, w, h, bytes_per_line, QtGui.QImage.Format_RGB888)
         #qt_img = qt_img.scaled(self.video_width, self.video_height, QtCore.Qt.KeepAspectRatio)
         self.image_label.setPixmap(QtGui.QPixmap.fromImage(qt_img))
+
+
+    def calc_aruco_widths(self, c):
+        x0, y0 = c[0]
+        x1, y1 = c[1]
+        x2, y2 = c[2]
+        x3, y3 = c[3]
+        wx = 0.5*np.sqrt( (x0+x3-x1-x2)**2 + (y0+y3-y1-y2)**2 )
+        wy = 0.5*np.sqrt( (x0+x1-x2-x3)**2 + (y0+y1-y2-y3)**2 )
+        return wx, wy
 
 
     def Thread_video_deaktivieren(self):
@@ -284,6 +354,9 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
         self.vMinSlider.setEnabled(True)
         self.vMaxSlider.setEnabled(True)
         self.minAreaSlider.setEnabled(True)
+        
+        # Flag, ob Messung aktiv
+        self.messung_aktiv = False
 
 
     def interaktion_deaktivieren(self):
@@ -300,6 +373,9 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
         self.vMinSlider.setEnabled(False)
         self.vMaxSlider.setEnabled(False)
         self.minAreaSlider.setEnabled(False)
+        
+        # Flag, ob Messung aktiv
+        self.messung_aktiv = True
 
 
     def Slider_zuruecksetzen(self):

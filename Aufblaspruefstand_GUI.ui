@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>919</width>
+    <width>1200</width>
     <height>603</height>
    </rect>
   </property>
@@ -163,9 +163,9 @@
          </widget>
         </item>
         <item row="0" column="1">
-         <widget class="QPushButton" name="pushButtonSwitchImage">
+         <widget class="QPushButton" name="pushButtonBildWechseln">
           <property name="text">
-           <string>Switch Image</string>
+           <string>Bild wechseln</string>
           </property>
          </widget>
         </item>
@@ -203,7 +203,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>919</width>
+     <width>1200</width>
      <height>21</height>
     </rect>
    </property>
