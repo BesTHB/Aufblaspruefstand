@@ -1,8 +1,8 @@
-import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import pandas as pd
 from scipy import signal
-from scipy import stats
+
 
 data_dir = './Messungen/2023_03_17__11_12_12/'   # '/' AM ENDE!
 
