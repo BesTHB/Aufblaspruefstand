@@ -1,12 +1,15 @@
 import Aufblaspruefstand_GUI
-from PyQt5 import QtWidgets, QtGui, QtCore, uic
-from datetime import datetime
-import numpy as np
 import cv2
-import serial
-import pyqtgraph as pg
+import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
+import pyqtgraph as pg
+import serial
+from datetime import datetime
 from pathlib import Path
+from PyQt5 import QtWidgets, QtGui, QtCore, uic
+from scipy import signal
+
 
 # src: https://gist.github.com/docPhil99/ca4da12c9d6f29b9cea137b617c7b8b1
 
@@ -220,20 +223,72 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
 
         # Pandas DataFrames anlegen und speichern
         outfile_druck = self.outdir + 'Druck.txt'
-        df_druck = pd.DataFrame({'Zeitpunkt Messung': self.time_pressure, 'Druck / mbar': self.pressure})
-        df_druck.to_csv(outfile_druck, sep=';', encoding='utf-8', index=False, header=True)
+        self.df_druck = pd.DataFrame({'Zeitpunkt Messung': self.time_pressure, 'Druck / mbar': self.pressure})
+        self.df_druck.to_csv(outfile_druck, sep=';', encoding='utf-8', index=False, header=True)
         print(f'Speichere aufgezeichnete Druckmessung in {outfile_druck} ab.')
 
         outfile_durchmesser = self.outdir + 'Durchmesser.txt'
-        df_durchmesser = pd.DataFrame({'Zeitpunkt Messung': self.time_diameter, 'Durchmesser / mm': self.diameter})
-        df_durchmesser.to_csv(outfile_durchmesser, sep=';', encoding='utf-8', index=False, header=True)
+        self.df_durchmesser = pd.DataFrame({'Zeitpunkt Messung': self.time_diameter, 'Durchmesser / mm': self.diameter})
+        self.df_durchmesser.to_csv(outfile_durchmesser, sep=';', encoding='utf-8', index=False, header=True)
         print(f'Speichere aufgezeichnete Durchmessermessung in {outfile_durchmesser} ab.')
+        
+        # Messung auswerten
+        self.Messung_auswerten()
 
         # Interaktion mit der GUI aktivieren
         self.interaktion_aktivieren()
 
         print("Task wurde manuell beendet!")
         return
+
+
+    def Messung_auswerten(self):
+        # Hier werden die Messungen zeitlich verknuepft, und zwar immer die zeitlich nahe liegendsten Druck- und Durchmessermessungen.
+        # Es werden die Zeitstempel des erst genannten DataFrames beibehalten (hier: self.df_druck).
+        df_merged = pd.merge_asof(self.df_druck, self.df_durchmesser, on='Zeitpunkt Messung', direction='nearest')
+        
+        # Von allen Zeitstempeln wird der erste Zeitstempel abgezogen, um die Versuchslaufzeit zu berechnen.
+        # Anschliessend wird die Versuchslaufzeit in Sekunden umgewandelt.
+        versuchslaufzeit = df_merged['Zeitpunkt Messung'] - df_merged['Zeitpunkt Messung'][0]
+        df_merged['Versuchslaufzeit / s'] = versuchslaufzeit.dt.total_seconds()
+        
+        zeit = df_merged['Versuchslaufzeit / s'].to_numpy()
+        druck = df_merged['Druck / mbar'].to_numpy()
+        durchmesser = df_merged['Durchmesser / mm'].to_numpy()
+        
+        # Butterworth-Filter anwenden, um Druck- und Durchmessermessung zu glaetten
+        bw_ord = 3
+        bw_fc = 0.15
+        b, a = signal.butter(bw_ord, bw_fc, 'low', analog=False, fs=5)
+        w, h = signal.freqs(b, a)
+        druck_gefiltert = signal.filtfilt(b, a, druck)
+        durchmesser_gefiltert = signal.filtfilt(b, a, durchmesser)
+        
+        blue = '#1f77b4'
+        orange = '#ff7f0e'
+        
+        fig, axs = plt.subplots(3, 1)
+        fig.tight_layout(pad=1.5)
+        axs[0].plot(zeit, druck, c=blue)
+        axs[0].plot(zeit, druck_gefiltert, c=orange)
+        axs[0].set_ylabel('Druck / mbar')
+        axs[0].locator_params(axis='y', nbins=5)
+        
+        axs[1].plot(zeit, durchmesser, c=blue)
+        axs[1].plot(zeit, durchmesser_gefiltert, c=orange)
+        axs[1].set_xlabel('Versuchslaufzeit / s')
+        axs[1].set_ylabel('Durchmesser / mm')
+        axs[1].locator_params(axis='y', nbins=5)
+        
+        #axs[2].plot(durchmesser, druck)
+        axs[2].plot(durchmesser_gefiltert, druck_gefiltert, c=orange)
+        axs[2].set_xlabel('Durchmesser / mm')
+        axs[2].set_ylabel('Druck / mbar')
+        axs[2].locator_params(axis='y', nbins=5)
+        
+        outfile_auswertung = self.outdir + 'Auswertung.png'
+        plt.savefig(outfile_auswertung, format='png', bbox_inches='tight')
+        print(f'Speichere Plot mit Auswertung in {outfile_auswertung} ab.')
 
 
     def update_lists_and_plot_p_over_t(self, t_druck, p_mbar):
