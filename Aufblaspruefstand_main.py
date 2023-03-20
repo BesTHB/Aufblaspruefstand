@@ -150,25 +150,18 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
         self.plot_GraphicsLayoutWidget.setBackground('w')
         self.plotitem_p_over_t = self.plot_GraphicsLayoutWidget.addPlot(row=0, col=0)
         self.plotitem_d_over_t = self.plot_GraphicsLayoutWidget.addPlot(row=1, col=0)
-        self.plotitem_p_over_d = self.plot_GraphicsLayoutWidget.addPlot(row=2, col=0)
         self.plotitem_d_over_t.setXLink(self.plotitem_p_over_t)
         self.plotitem_p_over_t.setMouseEnabled(x=False, y=False)
         self.plotitem_d_over_t.setMouseEnabled(x=False, y=False)
-        self.plotitem_p_over_d.setMouseEnabled(x=False, y=False)
         self.plotitem_p_over_t.setLabel('left', 'Druck / mbar', **label_styles)
         self.plotitem_d_over_t.setLabel('left', 'Durchmesser / mm', **label_styles)
         self.plotitem_d_over_t.setLabel('bottom', 'Versuchslaufzeit / s', **label_styles)
-        self.plotitem_p_over_d.setLabel('left', 'Druck / mbar', **label_styles)
-        self.plotitem_p_over_d.setLabel('bottom', 'Durchmesser / mm', **label_styles)
         self.scatterplotitem_p_over_t = pg.ScatterPlotItem(size=10, brush=pg.mkBrush(0, 86, 148, 120))
         self.scatterplotitem_d_over_t = pg.ScatterPlotItem(size=10, brush=pg.mkBrush(0, 86, 148, 120))
-        self.scatterplotitem_p_over_d = pg.ScatterPlotItem(size=10, brush=pg.mkBrush(0, 86, 148, 120))
         self.plotitem_p_over_t.addItem(self.scatterplotitem_p_over_t)
         self.plotitem_d_over_t.addItem(self.scatterplotitem_d_over_t)
-        self.plotitem_p_over_d.addItem(self.scatterplotitem_p_over_d)
         self.plotdataitem_p_over_t = self.plotitem_p_over_t.plot()
         self.plotdataitem_d_over_t = self.plotitem_d_over_t.plot()
-        self.plotdataitem_p_over_d = self.plotitem_p_over_d.plot()
 
         # Interaktion mit der GUI aktivieren
         self.interaktion_aktivieren()
@@ -208,7 +201,6 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
         # Plotdaten der Auswertung leeren
         self.scatterplotitem_p_over_t.clear()
         self.scatterplotitem_d_over_t.clear()
-        self.scatterplotitem_p_over_d.clear()
 
         # Interaktion mit der GUI deaktivieren
         self.interaktion_deaktivieren()
