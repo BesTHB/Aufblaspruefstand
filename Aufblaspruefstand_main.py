@@ -264,6 +264,13 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
         druck_gefiltert = signal.filtfilt(b, a, druck)
         durchmesser_gefiltert = signal.filtfilt(b, a, durchmesser)
         
+        # Geglaettete Verlaeufe dem DataFrame hinzufuegen und herausschreiben
+        df_merged['Druck (geglaettet) / mbar'] = druck_gefiltert
+        df_merged['Durchmesser (geglaettet) / mm'] = durchmesser_gefiltert
+        outfile_auswertung_txt = self.outdir + 'Auswertung.txt'
+        df_merged.to_csv(outfile_auswertung_txt, sep=';', encoding='utf-8', index=False, header=True)
+        print(f'Speichere Daten der Auswertung in {outfile_auswertung_txt} ab.')
+        
         blue = '#1f77b4'
         orange = '#ff7f0e'
         
@@ -286,9 +293,9 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
         axs[2].set_ylabel('Druck / mbar')
         axs[2].locator_params(axis='y', nbins=5)
         
-        outfile_auswertung = self.outdir + 'Auswertung.png'
-        plt.savefig(outfile_auswertung, format='png', bbox_inches='tight')
-        print(f'Speichere Plot mit Auswertung in {outfile_auswertung} ab.')
+        outfile_auswertung_png = self.outdir + 'Auswertung.png'
+        plt.savefig(outfile_auswertung_png, format='png', bbox_inches='tight')
+        print(f'Speichere Plot mit Auswertung in {outfile_auswertung_png} ab.')
 
 
     def update_lists_and_plot_p_over_t(self, t_druck, p_mbar):
