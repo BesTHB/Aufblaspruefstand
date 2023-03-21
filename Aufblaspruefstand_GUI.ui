@@ -161,6 +161,16 @@
        </layout>
       </item>
       <item>
+       <widget class="QPlainTextEdit" name="plainTextEdit_Log">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+       </widget>
+      </item>
+      <item>
        <layout class="QGridLayout" name="gridLayoutButtons">
         <item row="0" column="0">
          <widget class="QPushButton" name="pushButtonReset">

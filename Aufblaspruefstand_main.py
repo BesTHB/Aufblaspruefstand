@@ -1,5 +1,6 @@
 import Aufblaspruefstand_GUI
 import cv2
+import logging
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -16,7 +17,7 @@ from scipy import signal
 # TODO:
 # - 3/2 Wegeventil/Magnetventil statt Kugelhahn und Ablassventil benutzen (--> Ballon nur bis Durchmesser xx aufblasen, danach Druck ablassen und x Zyklen fahren)
 # - Code kommentieren
-# - Logging-Anzeige im unteren GUI-Bereich und als Datei
+# - Logging in Datei
 
 
 class Worker_Video(QtCore.QObject):
@@ -107,6 +108,18 @@ class Worker_Druck(QtCore.QObject):
         self.run_flag = False
 
 
+class Logger_QTextEdit(logging.Handler, QtCore.QObject):
+    signal_appendPlainText = QtCore.pyqtSignal(object)
+
+    def __init__(self):
+        logging.Handler.__init__(self)
+        QtCore.QObject.__init__(self)
+
+    def emit(self, log):
+        msg = self.format(log)
+        self.signal_appendPlainText.emit(msg)
+
+
 class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
     def __init__(self, *args, **kwargs):
         super(self.__class__, self).__init__(*args, **kwargs)  # Einfach gesagt: das erlaubt uns, Variablen aus der GUI-Datei aufzurufen
@@ -126,6 +139,30 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
         # Falls Datei nicht vorhanden ist, werden die Werte auf Standardwerte gesetzt
         except TypeError:
             self.Slider_zuruecksetzen()
+
+        # Log-Handler fuer GUI-Fenster anlegen
+        self.gui_loghandler = Logger_QTextEdit()
+        self.gui_loghandler.signal_appendPlainText.connect(self.plainTextEdit_Log.appendPlainText)
+
+        self.logger = logging.getLogger('./')  # Logger initialisieren (der Logger bekommt als eindeutigen Namen den Namen des Zielordners)
+        self.logger.handlers = []              # bisherige Handler des Loggers loeschen
+
+        # Log-Handler anlegen, Quelle: https://realpython.com/python-logging/#using-handlers
+        log_handler_stream = logging.StreamHandler()
+        #log_handler_file = logging.FileHandler(self.outpath+'VI_dynamisch.log')
+
+        self.logger.setLevel(logging.INFO)
+
+        # Log-Format definieren und den Handlern zuweisen
+        log_format = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s', datefmt='%d.%m.%y, %H:%M:%S')
+        log_handler_stream.setFormatter(log_format)
+        #log_handler_file.setFormatter(log_format)
+        self.gui_loghandler.setFormatter(log_format)
+
+        # Handler dem Logger hinzufuegen
+        self.logger.addHandler(log_handler_stream)
+        #self.logger.addHandler(log_handler_file)
+        self.logger.addHandler(self.gui_loghandler)
 
         # Zusammenhaenge zwischen Knoepfen (etc.) in der GUI (Frontend) und Funktionen dieses Skripts (Backend) definieren
         self.pushButtonReset.clicked.connect(self.Slider_zuruecksetzen)
@@ -181,6 +218,12 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
 
 
     def Messung_starten(self):
+        self.logger.info('Messung gestartet mit folgenden Einstellungen:')
+        self.logger.info(f'H = [{self.hMinSlider.value()}, {self.hMaxSlider.value()}]')
+        self.logger.info(f'S = [{self.sMinSlider.value()}, {self.sMaxSlider.value()}]')
+        self.logger.info(f'V = [{self.vMinSlider.value()}, {self.vMaxSlider.value()}]')
+        self.logger.info(f'min. Area = {self.minAreaSlider.value()}')
+
         # Startzeit merken
         self.time_start = datetime.now()
 
@@ -203,7 +246,7 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
 
         # Signale von Workern und Threads mit Slots (Funktionen) verknuepfen
         self.worker_druck.finished.connect(self.thread_druck.quit)   # Wenn Worker das Signal 'finished' sendet, wird der Thread beendet
-        self.worker_druck.finished.connect(lambda: print('Worker finished'))
+        self.worker_druck.finished.connect(lambda: self.logger.info('Worker finished'))
         self.worker_druck.signal_zeit_druck.connect(lambda t_druck, p_mbar: self.update_lists_and_plot_p_over_t(t_druck, p_mbar))
         self.thread_druck.started.connect(self.worker_druck.Start)  # Wenn Thread gestartet wird, wird im Worker die Funktion 'Start' ausgefuehrt
         self.thread_druck.finished.connect(self.Thread_druck_deaktivieren)   # Wenn Thread beendet ist, wird die Funktion 'Thread_druck_deaktivieren' ausgefuehrt
@@ -232,12 +275,12 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
         outfile_druck = self.outdir + 'Druck.txt'
         self.df_druck = pd.DataFrame({'Zeitpunkt Messung': self.time_pressure, 'Druck / mbar': self.pressure})
         self.df_druck.to_csv(outfile_druck, sep=';', encoding='utf-8', index=False, header=True)
-        print(f'Speichere aufgezeichnete Druckmessung in {outfile_druck} ab.')
+        self.logger.info(f'Speichere aufgezeichnete Druckmessung in {outfile_druck} ab.')
 
         outfile_durchmesser = self.outdir + 'Durchmesser.txt'
         self.df_durchmesser = pd.DataFrame({'Zeitpunkt Messung': self.time_diameter, 'Durchmesser / mm': self.diameter})
         self.df_durchmesser.to_csv(outfile_durchmesser, sep=';', encoding='utf-8', index=False, header=True)
-        print(f'Speichere aufgezeichnete Durchmessermessung in {outfile_durchmesser} ab.')
+        self.logger.info(f'Speichere aufgezeichnete Durchmessermessung in {outfile_durchmesser} ab.')
 
         # Messung auswerten
         self.Messung_auswerten()
@@ -245,7 +288,7 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
         # Interaktion mit der GUI aktivieren
         self.interaktion_aktivieren()
 
-        print("Task wurde manuell beendet!")
+        self.logger.info("Task wurde manuell beendet!")
         return
 
 
@@ -276,7 +319,7 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
         df_merged['Durchmesser (geglaettet) / mm'] = durchmesser_gefiltert
         outfile_auswertung_txt = self.outdir + 'Auswertung.txt'
         df_merged.to_csv(outfile_auswertung_txt, sep=';', encoding='utf-8', index=False, header=True)
-        print(f'Speichere Daten der Auswertung in {outfile_auswertung_txt} ab.')
+        self.logger.info(f'Speichere Daten der Auswertung in {outfile_auswertung_txt} ab.')
 
         blue = '#1f77b4'
         orange = '#ff7f0e'
@@ -302,7 +345,7 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
 
         outfile_auswertung_png = self.outdir + 'Auswertung.png'
         plt.savefig(outfile_auswertung_png, format='png', bbox_inches='tight')
-        print(f'Speichere Plot mit Auswertung in {outfile_auswertung_png} ab.')
+        self.logger.info(f'Speichere Plot mit Auswertung in {outfile_auswertung_png} ab.')
 
 
     def Screenshot_speichern(self):
@@ -345,9 +388,10 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
 
         # Signale von Workern und Threads mit Slots (Funktionen) verknuepfen
         self.worker_video.finished.connect(self.thread_video.quit)   # Wenn Worker das Signal 'finished' sendet, wird der Thread beendet
-        self.worker_video.finished.connect(lambda: print('Worker finished'))
+        self.worker_video.finished.connect(lambda: self.logger.info('Worker finished'))
         self.worker_video.signal_change_pixmap.connect(lambda cv_img: self.update_image(cv_img))
         self.thread_video.started.connect(self.worker_video.Start)  # Wenn Thread gestartet wird, wird im Worker die Funktion 'Start' ausgefuehrt
+        self.thread_video.started.connect(lambda: self.logger.info('Video gestartet.'))
         self.thread_video.finished.connect(self.Thread_video_deaktivieren)   # Wenn Thread beendet ist, wird die Funktion 'Thread_video_deaktivieren' ausgefuehrt
 
         # Thread starten
@@ -442,7 +486,7 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
 
             outfile_img = f'./Screenshots/Screenshot_{datetime.now().strftime("%Y_%m_%d__%H_%M_%S")}.png'
             cv2.imwrite(outfile_img, cv2.cvtColor(self.imgs[self.img_index], cv2.COLOR_RGB2BGR))  # Anmerkung: Bild muss als BGR (nicht RGB) vorliegen
-            print(f'Speichere Screenshot unter {outfile_img} ab.')
+            self.logger.info(f'Speichere Screenshot unter {outfile_img} ab.')
 
             # Flag zuruecksetzen
             self.save_img = False
