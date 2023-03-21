@@ -343,9 +343,9 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
         axs[2].set_ylabel('Druck / mbar')
         axs[2].locator_params(axis='y', nbins=5)
 
-        outfile_auswertung_png = self.outdir + 'Auswertung.png'
-        plt.savefig(outfile_auswertung_png, format='png', bbox_inches='tight')
-        self.logger.info(f'Speichere Plot mit Auswertung in {outfile_auswertung_png} ab.')
+        outfile_auswertung_pdf = self.outdir + 'Auswertung.pdf'
+        plt.savefig(outfile_auswertung_pdf, format='pdf', bbox_inches='tight')
+        self.logger.info(f'Speichere Plot mit Auswertung in {outfile_auswertung_pdf} ab.')
 
 
     def Screenshot_speichern(self):
