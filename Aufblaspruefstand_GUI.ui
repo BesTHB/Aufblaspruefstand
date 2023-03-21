@@ -151,6 +151,13 @@
           </property>
          </widget>
         </item>
+        <item row="4" column="3">
+         <widget class="QPushButton" name="pushButtonScreenshot">
+          <property name="text">
+           <string>Screenshot speichern</string>
+          </property>
+         </widget>
+        </item>
        </layout>
       </item>
       <item>

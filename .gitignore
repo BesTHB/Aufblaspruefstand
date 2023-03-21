@@ -3,6 +3,7 @@
 dist/
 build/
 Messungen/
+Screenshots/
 __pycache__/
 py_venv/
 pi_pico/*.uf2

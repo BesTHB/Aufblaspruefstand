@@ -13,6 +13,11 @@ from scipy import signal
 
 # src: https://gist.github.com/docPhil99/ca4da12c9d6f29b9cea137b617c7b8b1
 
+# TODO:
+# - 3/2 Wegeventil/Magnetventil statt Kugelhahn und Ablassventil benutzen (--> Ballon nur bis Durchmesser xx aufblasen, danach Druck ablassen und x Zyklen fahren)
+# - Code kommentieren
+# - Logging-Anzeige im unteren GUI-Bereich und als Datei
+
 
 class Worker_Video(QtCore.QObject):
     finished = QtCore.pyqtSignal()
@@ -127,6 +132,7 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
         self.pushButtonMessungStarten.clicked.connect(self.Messung_starten)
         self.pushButtonMessungBeenden.clicked.connect(self.Messung_beenden)
         self.pushButtonBildWechseln.clicked.connect(self.Bild_wechseln)
+        self.pushButtonScreenshot.clicked.connect(self.Screenshot_speichern)
 
         # Werte Video
         self.video_width = 640
@@ -134,6 +140,7 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
         self.image_label.resize(self.video_width, self.video_height)
         self.thread_video = None
         self.time_last_diameter_query = datetime.now()
+        self.save_img = False  # Flag, ob Screenshot gespeichert werden soll
 
         # Liste fuer Bilder und Index des anzuzeigenden Bildes (original, gefiltert) initialisieren
         self.imgs = [None, None]
@@ -231,7 +238,7 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
         self.df_durchmesser = pd.DataFrame({'Zeitpunkt Messung': self.time_diameter, 'Durchmesser / mm': self.diameter})
         self.df_durchmesser.to_csv(outfile_durchmesser, sep=';', encoding='utf-8', index=False, header=True)
         print(f'Speichere aufgezeichnete Durchmessermessung in {outfile_durchmesser} ab.')
-        
+
         # Messung auswerten
         self.Messung_auswerten()
 
@@ -246,16 +253,16 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
         # Hier werden die Messungen zeitlich verknuepft, und zwar immer die zeitlich nahe liegendsten Druck- und Durchmessermessungen.
         # Es werden die Zeitstempel des erst genannten DataFrames beibehalten (hier: self.df_druck).
         df_merged = pd.merge_asof(self.df_druck, self.df_durchmesser, on='Zeitpunkt Messung', direction='nearest')
-        
+
         # Von allen Zeitstempeln wird der erste Zeitstempel abgezogen, um die Versuchslaufzeit zu berechnen.
         # Anschliessend wird die Versuchslaufzeit in Sekunden umgewandelt.
         versuchslaufzeit = df_merged['Zeitpunkt Messung'] - df_merged['Zeitpunkt Messung'][0]
         df_merged['Versuchslaufzeit / s'] = versuchslaufzeit.dt.total_seconds()
-        
+
         zeit = df_merged['Versuchslaufzeit / s'].to_numpy()
         druck = df_merged['Druck / mbar'].to_numpy()
         durchmesser = df_merged['Durchmesser / mm'].to_numpy()
-        
+
         # Butterworth-Filter anwenden, um Druck- und Durchmessermessung zu glaetten
         bw_ord = 3
         bw_fc = 0.15
@@ -263,39 +270,44 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
         w, h = signal.freqs(b, a)
         druck_gefiltert = signal.filtfilt(b, a, druck)
         durchmesser_gefiltert = signal.filtfilt(b, a, durchmesser)
-        
+
         # Geglaettete Verlaeufe dem DataFrame hinzufuegen und herausschreiben
         df_merged['Druck (geglaettet) / mbar'] = druck_gefiltert
         df_merged['Durchmesser (geglaettet) / mm'] = durchmesser_gefiltert
         outfile_auswertung_txt = self.outdir + 'Auswertung.txt'
         df_merged.to_csv(outfile_auswertung_txt, sep=';', encoding='utf-8', index=False, header=True)
         print(f'Speichere Daten der Auswertung in {outfile_auswertung_txt} ab.')
-        
+
         blue = '#1f77b4'
         orange = '#ff7f0e'
-        
+
         fig, axs = plt.subplots(3, 1)
         fig.tight_layout(pad=1.5)
         axs[0].plot(zeit, druck, c=blue)
         axs[0].plot(zeit, druck_gefiltert, c=orange)
         axs[0].set_ylabel('Druck / mbar')
         axs[0].locator_params(axis='y', nbins=5)
-        
+
         axs[1].plot(zeit, durchmesser, c=blue)
         axs[1].plot(zeit, durchmesser_gefiltert, c=orange)
         axs[1].set_xlabel('Versuchslaufzeit / s')
         axs[1].set_ylabel('Durchmesser / mm')
         axs[1].locator_params(axis='y', nbins=5)
-        
+
         #axs[2].plot(durchmesser, druck)
         axs[2].plot(durchmesser_gefiltert, druck_gefiltert, c=orange)
         axs[2].set_xlabel('Durchmesser / mm')
         axs[2].set_ylabel('Druck / mbar')
         axs[2].locator_params(axis='y', nbins=5)
-        
+
         outfile_auswertung_png = self.outdir + 'Auswertung.png'
         plt.savefig(outfile_auswertung_png, format='png', bbox_inches='tight')
         print(f'Speichere Plot mit Auswertung in {outfile_auswertung_png} ab.')
+
+
+    def Screenshot_speichern(self):
+        # Flag, ob Screenshot des naechsten Webcam-Bildes gespeichert werden soll
+        self.save_img = True
 
 
     def update_lists_and_plot_p_over_t(self, t_druck, p_mbar):
@@ -390,10 +402,10 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
                 box = cv2.boxPoints(rect)
                 box = np.intp(box)
                 cv2.polylines(self.imgs[self.img_index], [box], True, (255, 0, 0), 2)
-                cv2.putText(self.imgs[self.img_index], f'[pixel] width: {w:.1f}, height: {h:.1f}', (int(x), int(y)+15), cv2.FONT_HERSHEY_PLAIN, 1, (0, 0, 255), 1)
+                cv2.putText(self.imgs[self.img_index], f'[pixel] width: {w:.1f}, height: {h:.1f}', (int(x), int(y)+15), cv2.FONT_HERSHEY_PLAIN, 1, (255, 0, 0), 1)
                 try:
                     durchmesser = w/pixel_mm_ratio
-                    cv2.putText(self.imgs[self.img_index], f'[mm] width: {durchmesser:.2f}, height: {h/pixel_mm_ratio:.2f}', (int(x), int(y)+30), cv2.FONT_HERSHEY_PLAIN, 1, (0, 0, 255), 1)
+                    cv2.putText(self.imgs[self.img_index], f'[mm] width: {durchmesser:.2f}, height: {h/pixel_mm_ratio:.2f}', (int(x), int(y)+30), cv2.FONT_HERSHEY_PLAIN, 1, (255, 0, 0), 1)
 
                     # Vorsicht: Das Originalbild sollte mit HSV so eingestellt sein, dass nur EINE Box (naemlich um den Luftballon) gezeichnet wird.
                     # Sonst werden naemlich die Weiten mehrerer Objekte geplottet!
@@ -422,6 +434,18 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
         qt_img = QtGui.QImage(self.imgs[self.img_index].data, w, h, bytes_per_line, QtGui.QImage.Format_RGB888)
         #qt_img = qt_img.scaled(self.video_width, self.video_height, QtCore.Qt.KeepAspectRatio)
         self.image_label.setPixmap(QtGui.QPixmap.fromImage(qt_img))
+
+        # Das Bild abspeichern
+        if self.save_img:
+            # Output-Ordner fuer Screenshots anlegen, falls noch nicht vorhanden
+            Path('./Screenshots/').mkdir(exist_ok=True)
+
+            outfile_img = f'./Screenshots/Screenshot_{datetime.now().strftime("%Y_%m_%d__%H_%M_%S")}.png'
+            cv2.imwrite(outfile_img, cv2.cvtColor(self.imgs[self.img_index], cv2.COLOR_RGB2BGR))  # Anmerkung: Bild muss als BGR (nicht RGB) vorliegen
+            print(f'Speichere Screenshot unter {outfile_img} ab.')
+
+            # Flag zuruecksetzen
+            self.save_img = False
 
 
     def calc_aruco_widths(self, c):
