@@ -16,42 +16,28 @@ class Application:
         self.win.protocol('WM_DELETE_WINDOW', self.destructor)
 
         # Read data
-        self.infile = './Messungen/2023_03_21__09_11_35/Auswertung.txt'
+        #self.infile = './Messungen/TIME_STAMP/Auswertung.txt'
+        self.infile = 'E:/Seafile/paper_PolymerTesting/LaTeX2/data/2023_03_21__09_11_35/Auswertung.txt'
         df = pd.read_csv(self.infile, sep=';', decimal='.', header=0)
 
         # Save data in separate lists
         self.time = df['Versuchslaufzeit / s'].to_numpy()
         self.pressure_raw = df['Druck / mbar'].to_numpy()
         self.diameter_raw = df['Durchmesser / mm'].to_numpy()
-        self.pressure_filtered = df['Druck (geglaettet) / mbar'].to_numpy()
-        self.diameter_filtered = df['Durchmesser (geglaettet) / mm'].to_numpy()
 
         # Define axis labels
-        pressure_label = 'Pressure / mbar'
-        diameter_label = 'Diameter / mm'
-        time_label = 'Time / s'
+        self.pressure_label = 'Pressure / mbar'
+        self.diameter_label = 'Diameter / mm'
+        self.time_label = 'Time / s'
 
         # Define colors for plot
         self.blue = '#1f77b4'
         self.orange = '#ff7f0e'
 
         # initialize plot canvas
-        self.fig, self.axs = plt.subplots(3, 1, tight_layout=True)
-        self.axs[0].plot(self.time, self.pressure_raw, c=self.blue)
-        self.axs[1].plot(self.time, self.diameter_raw, c=self.blue)
-        self.line_p_over_t_filtered, = self.axs[0].plot(self.time, self.pressure_filtered, c=self.orange)
-        self.line_d_over_t_filtered, = self.axs[1].plot(self.time, self.diameter_filtered, c=self.orange)
-        self.line_p_over_d_filtered, = self.axs[2].plot(self.diameter_filtered, self.pressure_filtered, c=self.orange)
-        self.axs[0].set_xlabel(time_label)
-        self.axs[0].set_ylabel(pressure_label)
-        self.axs[1].set_xlabel(time_label)
-        self.axs[1].set_ylabel(diameter_label)
-        self.axs[2].set_xlabel(diameter_label)
-        self.axs[2].set_ylabel(pressure_label)
-        self.axs[0].locator_params(axis='y', nbins=5)  # create 5 ticks on y-axis
-        self.axs[1].locator_params(axis='y', nbins=5)
-        self.axs[2].locator_params(axis='y', nbins=5)
-        self.plot_canvas = FigureCanvasTkAgg(self.fig, master=self.win)  # A tk.DrawingArea.
+        self.fig, self.axs = plt.subplots(3, 1)
+        self.fig.tight_layout(pad=1.5)
+        self.plot_canvas = FigureCanvasTkAgg(self.fig, master=self.win)  # A tk.DrawingArea
         self.plot_canvas.draw()
         self.plot_canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
@@ -82,13 +68,31 @@ class Application:
         # Butterworth-Filter anwenden, um Druck- und Durchmessermessung zu glaetten
         b, a = signal.butter(self.slider_bw_ord.get(), self.slider_bw_fc.get(), 'low', analog=False, fs=self.sampling_freq)
         w, h = signal.freqs(b, a)
-        self.pressure_filtered = signal.filtfilt(b, a, self.pressure_raw)
-        self.diameter_filtered = signal.filtfilt(b, a, self.diameter_raw)
+        pressure_filtered = signal.filtfilt(b, a, self.pressure_raw)
+        diameter_filtered = signal.filtfilt(b, a, self.diameter_raw)
+
+        # clear plot
+        self.axs[0].clear()
+        self.axs[1].clear()
+        self.axs[2].clear()
+
+        # new plot
+        self.axs[0].plot(self.time, self.pressure_raw, c=self.blue)
+        self.axs[0].plot(self.time, pressure_filtered, c=self.orange)
+        self.axs[1].plot(self.time, self.diameter_raw, c=self.blue)
+        self.axs[1].plot(self.time, diameter_filtered, c=self.orange)
+        self.axs[2].plot(diameter_filtered, pressure_filtered, c=self.orange)
+
+        self.axs[0].set_ylabel(self.pressure_label)
+        self.axs[1].set_xlabel(self.time_label)
+        self.axs[1].set_ylabel(self.diameter_label)
+        self.axs[2].set_xlabel(self.diameter_label)
+        self.axs[2].set_ylabel(self.pressure_label)
+        self.axs[0].locator_params(axis='y', nbins=5)  # create 5 ticks on y-axis
+        self.axs[1].locator_params(axis='y', nbins=5)
+        self.axs[2].locator_params(axis='y', nbins=5)
 
         # update plot
-        self.line_p_over_t_filtered.set_data(self.time, self.pressure_filtered)
-        self.line_d_over_t_filtered.set_data(self.time, self.diameter_filtered)
-        self.line_p_over_d_filtered.set_data(self.diameter_filtered, self.pressure_filtered)
         plt.draw()
 
 
