@@ -16,8 +16,7 @@ class Application:
         self.win.protocol('WM_DELETE_WINDOW', self.destructor)
 
         # Read data
-        #self.infile = './Messungen/TIME_STAMP/Auswertung.txt'
-        self.infile = 'E:/Seafile/paper_PolymerTesting/LaTeX2/data/2023_03_21__09_11_35/Auswertung.txt'
+        self.infile = './Messungen/TIME_STAMP/Auswertung.txt'
         df = pd.read_csv(self.infile, sep=';', decimal='.', header=0)
 
         # Save data in separate lists
