@@ -30,8 +30,7 @@ class Application:
         self.time_label = 'Time / s'
 
         # Define colors for plot
-        self.blue = '#1f77b4'
-        self.orange = '#ff7f0e'
+        self.colors = ['tab:blue', 'tab:orange', 'tab:green', 'tab:red']
 
         # initialize plot canvas
         self.fig, self.axs = plt.subplots(3, 1)
@@ -39,6 +38,9 @@ class Application:
         self.plot_canvas = FigureCanvasTkAgg(self.fig, master=self.win)  # A tk.DrawingArea
         self.plot_canvas.draw()
         self.plot_canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+
+        # Indices of cycle starts with different load amplitudes -> different coloring
+        self.start_cycles = [0, len(self.time)]  # min. [0, len(self.time)]
 
         # create sliders for butterworth filter
         self.bw_ord_init = 3
@@ -64,7 +66,7 @@ class Application:
 
 
     def update_plot(self):
-        # Butterworth-Filter anwenden, um Druck- und Durchmessermessung zu glaetten
+        # apply lowpass digital Butterworth filter to raw measurements of pressure and diameter
         b, a = signal.butter(self.slider_bw_ord.get(), self.slider_bw_fc.get(), 'low', analog=False, fs=self.sampling_freq)
         w, h = signal.freqs(b, a)
         pressure_filtered = signal.filtfilt(b, a, self.pressure_raw)
@@ -76,11 +78,15 @@ class Application:
         self.axs[2].clear()
 
         # new plot
-        self.axs[0].plot(self.time, self.pressure_raw, c=self.blue)
-        self.axs[0].plot(self.time, pressure_filtered, c=self.orange)
-        self.axs[1].plot(self.time, self.diameter_raw, c=self.blue)
-        self.axs[1].plot(self.time, diameter_filtered, c=self.orange)
-        self.axs[2].plot(diameter_filtered, pressure_filtered, c=self.orange)
+        # raw measurements
+        self.axs[0].plot(self.time, self.pressure_raw, c=self.colors[0])
+        self.axs[1].plot(self.time, self.diameter_raw, c=self.colors[0])
+
+        # filtered/smoothed data, colored per load amplitude
+        for i in range(len(self.start_cycles)-1):
+            self.axs[0].plot(self.time[self.start_cycles[i]:self.start_cycles[i+1]], pressure_filtered[self.start_cycles[i]:self.start_cycles[i+1]], c=self.colors[i+1])
+            self.axs[1].plot(self.time[self.start_cycles[i]:self.start_cycles[i+1]], diameter_filtered[self.start_cycles[i]:self.start_cycles[i+1]], c=self.colors[i+1])
+            self.axs[2].plot(diameter_filtered[self.start_cycles[i]:self.start_cycles[i+1]], pressure_filtered[self.start_cycles[i]:self.start_cycles[i+1]], c=self.colors[i+1])
 
         self.axs[0].set_ylabel(self.pressure_label)
         self.axs[1].set_xlabel(self.time_label)
