@@ -233,6 +233,19 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
             self.logger.warning(f'Der Mindestdurchmesser ist {d_min}mm. Die Messung wurde nicht gestartet.')
             return
 
+        # Testen, ob alle Werte den Maximalwert erfuellen
+        d_max = 210
+        if any([x > d_max for x in self.zyklen_durchmesser]):
+            self.logger.warning(f'Der Maximaldurchmesser ist {d_max}mm. Die Messung wurde nicht gestartet.')
+            return
+
+        # Durchmesserwerte loggen
+        tmp_str = ''
+        for d in self.zyklen_durchmesser:
+            tmp_str += f'{d}, '
+        tmp_str = tmp_str.rstrip(', ')
+        self.logger.info(f'Durchmesserzyklen: [{tmp_str}]')
+
         # Werte fuer automatisches Oeffnen/Schliessen des Magnetventils initialisieren
         self.aufblasen = True
         self.entlueften_beendet = False
