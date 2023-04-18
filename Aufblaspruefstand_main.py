@@ -15,7 +15,6 @@ from scipy import signal
 # src: https://gist.github.com/docPhil99/ca4da12c9d6f29b9cea137b617c7b8b1
 
 # TODO:
-# - 3/2 Wegeventil/Magnetventil statt Kugelhahn und Ablassventil benutzen (--> Ballon nur bis Durchmesser xx aufblasen, danach Druck ablassen und x Zyklen fahren)
 # - Code kommentieren
 # - Logging in Datei
 
@@ -65,7 +64,6 @@ class Worker_Druck(QtCore.QObject):
     def __init__(self, port):
         super().__init__()
         self.run_flag = True
-        self.ser = serial.Serial(port, 9600)
 
         # Werte zur Konvertierung des seriellen Signals von Volt in mbar definieren
         self.v_in = 3.3                   # input voltage in V
@@ -79,10 +77,10 @@ class Worker_Druck(QtCore.QObject):
             # read 16bit serial value, convert to string as UTF-8, rstrip newline-character and ...
             try:
                 # convert to int
-                sensorVal = int(str(self.ser.readline(), 'UTF-8').rstrip('\n'))
+                sensorVal = int(str(ser.readline(), 'UTF-8').rstrip('\n'))
             except ValueError:
                 # convert to float
-                sensorVal = float(str(self.ser.readline(), 'UTF-8').rstrip('\n'))
+                sensorVal = float(str(ser.readline(), 'UTF-8').rstrip('\n'))
 
             # Zeitpunkt der Messung festhalten
             t_druck = datetime.now()
@@ -101,8 +99,6 @@ class Worker_Druck(QtCore.QObject):
             self.signal_zeit_druck.emit(t_druck, p_mbar)
 
         self.finished.emit()
-        self.ser.close()  # Verbindung zur seriellen Schnittstelle trennen
-
 
     def Stop(self):
         self.run_flag = False
@@ -224,6 +220,28 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
         self.logger.info(f'V = [{self.vMinSlider.value()}, {self.vMaxSlider.value()}]')
         self.logger.info(f'min. Area = {self.minAreaSlider.value()}')
 
+        # Durchmesser aus GUI-Eingabe extrahieren, bis zu denen je Zyklus aufgeblasen werden soll.
+        try:
+            self.zyklen_durchmesser = [float(x) for x in self.lineEdit_Durchmesser_Zyklen.text().strip().replace(' ','').split(',')]
+        except ValueError:
+            self.logger.warning('Bitte kontrollieren Sie die Eingabe der Durchmesser je Zyklus. Die Messung wurde nicht gestartet.')
+            return
+
+        # Testen, ob alle Werte den Mindestwert erfuellen
+        d_min = 60
+        if any([x < d_min for x in self.zyklen_durchmesser]):
+            self.logger.warning(f'Der Mindestdurchmesser ist {d_min}mm. Die Messung wurde nicht gestartet.')
+            return
+
+        # Werte fuer automatisches Oeffnen/Schliessen des Magnetventils initialisieren
+        self.aufblasen = True
+        self.zyklus = 0
+
+        # serielle Schnittstelle verbinden und Magnetventil oeffnen
+        global ser
+        ser = serial.Serial(self.port, 9600)
+        ser.write(b'o')
+
         # Startzeit merken
         self.time_start = datetime.now()
 
@@ -289,6 +307,9 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
         self.interaktion_aktivieren()
 
         self.logger.info("Task wurde manuell beendet!")
+
+        # serielle Schnittstelle schliessen
+        ser.close()
         return
 
 
@@ -432,7 +453,8 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
 
         # if currently no aruco marker is detected in the webcam image, corners[0] will throw an IndexError
         except IndexError:
-            pass
+            # Warnung anzeigen, dass aktuell kein Aruco-Marker detektiert wurde
+            cv2.putText(self.imgs[self.img_index], 'Kein Aruco-Marker gefunden!', (int(self.video_width/10), int(self.video_height/2)), cv2.FONT_HERSHEY_PLAIN, 2, (255, 0, 0), 3)
 
         # detect contours, conversion to grayscale is necessary for findContours
         img_gray = cv2.cvtColor(self.imgs[1], cv2.COLOR_BGR2GRAY)
@@ -467,6 +489,17 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
                             self.diameter.append(durchmesser)
 
                             self.time_last_diameter_query = datetime.now()
+
+                        # Feststellen, ob Magnetventil geoeffnet/geschlossen werden soll
+                        # Falls Durchmesser beim Aufblasen ueber den Solldurchmesser des akt. Zyklus anwaechst, Magnetventil schliessen --> entlueften
+                        if (self.aufblasen and (durchmesser >= self.zyklen_durchmesser[self.zyklus])):
+                            ser.write(b'c')
+                            self.aufblasen = False
+                        # Falls Druck beim Entlueften unter 10 mbar faellt, Magnetventil oeffnen --> aufblasen
+                        elif (not(self.aufblasen) and (self.pressure[-1] < 10) and (self.zyklus < len(self.zyklen_durchmesser)-1)):
+                            ser.write(b'o')
+                            self.aufblasen = True
+                            self.zyklus += 1
 
                 except UnboundLocalError:
                     # if pixel_mm_ratio is not present, pass

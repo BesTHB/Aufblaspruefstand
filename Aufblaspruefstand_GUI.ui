@@ -197,6 +197,16 @@
         <widget class="GraphicsLayoutWidget" name="plot_GraphicsLayoutWidget"/>
        </item>
        <item>
+        <widget class="QLineEdit" name="lineEdit_Durchmesser_Zyklen">
+         <property name="toolTip">
+          <string>Durchmesser, die je Aufblasezyklus erreicht werden sollen (kommagetrennt, min. ein Wert, max. 250)</string>
+         </property>
+         <property name="placeholderText">
+          <string>100, 100, 150, 150, 200, 200</string>
+         </property>
+        </widget>
+       </item>
+       <item>
         <widget class="QPushButton" name="pushButtonMessungStarten">
          <property name="text">
           <string>Messung starten</string>
