@@ -235,7 +235,10 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
 
         # Werte fuer automatisches Oeffnen/Schliessen des Magnetventils initialisieren
         self.aufblasen = True
+        self.entlueften_beendet = False
         self.zyklus = 0
+        self.zeit_ende_entlueften = datetime.now()
+        self.verzoegerung_aufblasen = 2  # Sekunden
 
         # serielle Schnittstelle verbinden und Magnetventil oeffnen
         global ser
@@ -495,11 +498,19 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
                         if (self.aufblasen and (durchmesser >= self.zyklen_durchmesser[self.zyklus])):
                             ser.write(b'c')
                             self.aufblasen = False
+                            self.entlueften_beendet = False
                         # Falls Druck beim Entlueften unter 10 mbar faellt, Magnetventil oeffnen --> aufblasen
                         elif (not(self.aufblasen) and (self.pressure[-1] < 10) and (self.zyklus < len(self.zyklen_durchmesser)-1)):
-                            ser.write(b'o')
-                            self.aufblasen = True
-                            self.zyklus += 1
+                            # Den Zeitpunkt des erstmaligen Betretens der Bedingung (<10 mbar) festhalten
+                            if (not self.entlueften_beendet):
+                                self.zeit_ende_entlueften = now
+                                self.entlueften_beendet = True
+
+                            # Erst nach der Verzoegerungszeit wieder erneut aufblasen
+                            if ((now-self.zeit_ende_entlueften).total_seconds() >= self.verzoegerung_aufblasen):
+                                ser.write(b'o')
+                                self.aufblasen = True
+                                self.zyklus += 1
 
                 except UnboundLocalError:
                     # if pixel_mm_ratio is not present, pass
