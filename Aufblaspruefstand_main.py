@@ -136,6 +136,12 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
         except TypeError:
             self.Slider_zuruecksetzen()
 
+        # Tauschordner (fuer Infomonitor setzen) --> //IP.IP.IP.IP/Infomonitor_Austausch/  (manuell in values.ini setzen!)
+        try:
+            self.tauschordner = self.settings.value('tauschordner')
+        except:
+            self.tauschordner = './'
+
         # Log-Handler fuer GUI-Fenster anlegen
         self.gui_loghandler = Logger_QTextEdit()
         self.gui_loghandler.signal_appendPlainText.connect(self.plainTextEdit_Log.appendPlainText)
@@ -383,6 +389,13 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
         outfile_auswertung_pdf = self.outdir + 'Auswertung.pdf'
         plt.savefig(outfile_auswertung_pdf, format='pdf', bbox_inches='tight')
         self.logger.info(f'Speichere Plot mit Auswertung in {outfile_auswertung_pdf} ab.')
+
+        try:
+            outfile_infomonitor = self.tauschordner + 'Auswertung.pdf'
+            plt.savefig(outfile_infomonitor, format='pdf', bbox_inches='tight')
+            self.logger.info(f'Speichere Plot mit Auswertung in {outfile_infomonitor} ab.')
+        except Exception as e:
+            self.logger.error('Plot der Auswertung (fuer Infomonitor) konnte nicht gespeichert werden:\n{e}')
 
 
     def Screenshot_speichern(self):
