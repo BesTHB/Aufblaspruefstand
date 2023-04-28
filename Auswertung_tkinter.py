@@ -58,7 +58,7 @@ class Application:
         # create buttons
         self.btn_reset = tk.Button(self.win, text='Reset', command=self.reset_values)
         self.btn_reset.pack()
-        self.btn_save_plot = tk.Button(self.win, text='Save plot', command=self.save_plot)
+        self.btn_save_plot = tk.Button(self.win, text='Save plot and data', command=self.save_plot_and_data)
         self.btn_save_plot.pack()
 
         # update plot
@@ -69,8 +69,8 @@ class Application:
         # apply lowpass digital Butterworth filter to raw measurements of pressure and diameter
         b, a = signal.butter(self.slider_bw_ord.get(), self.slider_bw_fc.get(), 'low', analog=False, fs=self.sampling_freq)
         w, h = signal.freqs(b, a)
-        pressure_filtered = signal.filtfilt(b, a, self.pressure_raw)
-        diameter_filtered = signal.filtfilt(b, a, self.diameter_raw)
+        self.pressure_filtered = signal.filtfilt(b, a, self.pressure_raw)
+        self.diameter_filtered = signal.filtfilt(b, a, self.diameter_raw)
 
         # clear plot
         self.axs[0].clear()
@@ -84,9 +84,9 @@ class Application:
 
         # filtered/smoothed data, colored per load amplitude
         for i in range(len(self.start_cycles)-1):
-            self.axs[0].plot(self.time[self.start_cycles[i]:self.start_cycles[i+1]], pressure_filtered[self.start_cycles[i]:self.start_cycles[i+1]], c=self.colors[i+1])
-            self.axs[1].plot(self.time[self.start_cycles[i]:self.start_cycles[i+1]], diameter_filtered[self.start_cycles[i]:self.start_cycles[i+1]], c=self.colors[i+1])
-            self.axs[2].plot(diameter_filtered[self.start_cycles[i]:self.start_cycles[i+1]], pressure_filtered[self.start_cycles[i]:self.start_cycles[i+1]], c=self.colors[i+1])
+            self.axs[0].plot(self.time[self.start_cycles[i]:self.start_cycles[i+1]], self.pressure_filtered[self.start_cycles[i]:self.start_cycles[i+1]], c=self.colors[i+1])
+            self.axs[1].plot(self.time[self.start_cycles[i]:self.start_cycles[i+1]], self.diameter_filtered[self.start_cycles[i]:self.start_cycles[i+1]], c=self.colors[i+1])
+            self.axs[2].plot(self.diameter_filtered[self.start_cycles[i]:self.start_cycles[i+1]], self.pressure_filtered[self.start_cycles[i]:self.start_cycles[i+1]], c=self.colors[i+1])
 
         self.axs[0].set_ylabel(self.pressure_label)
         self.axs[1].set_xlabel(self.time_label)
@@ -101,10 +101,20 @@ class Application:
         plt.draw()
 
 
-    def save_plot(self):
+    def save_plot_and_data(self):
         outfile_pdf = self.infile.replace('.txt', f'__bw_ord_{self.slider_bw_ord.get()}__bw_fc_{self.slider_bw_fc.get():.2f}.pdf')
         plt.savefig(outfile_pdf, format='pdf', bbox_inches='tight')
         print(f'Speichere Plot unter {outfile_pdf} ab.')
+
+        # Daten zum Plot speichern
+        outfile_txt = outfile_pdf.replace('.pdf', '.txt')
+        df_neu = pd.DataFrame({'Druck / mbar': self.pressure_raw,
+                               'Durchmesser / mm': self.diameter_raw,
+                               'Versuchslaufzeit / s': self.time,
+                               'Druck (geglaettet) / mbar': self.pressure_filtered,
+                               'Durchmesser (geglaettet) / mm': self.diameter_filtered})
+        df_neu.to_csv(outfile_txt, sep=';', encoding='utf-8', index=False, header=True)
+        print(f'Speichere Daten der Auswertung in {outfile_txt} ab.')
 
 
     def reset_values(self):
