@@ -16,7 +16,6 @@ from scipy import signal
 
 # TODO:
 # - Code kommentieren
-# - Logging in Datei
 
 
 class Worker_Video(QtCore.QObject):
@@ -151,19 +150,16 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
 
         # Log-Handler anlegen, Quelle: https://realpython.com/python-logging/#using-handlers
         log_handler_stream = logging.StreamHandler()
-        #log_handler_file = logging.FileHandler(self.outpath+'VI_dynamisch.log')
 
         self.logger.setLevel(logging.INFO)
 
         # Log-Format definieren und den Handlern zuweisen
-        log_format = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s', datefmt='%d.%m.%y, %H:%M:%S')
-        log_handler_stream.setFormatter(log_format)
-        #log_handler_file.setFormatter(log_format)
-        self.gui_loghandler.setFormatter(log_format)
+        self.log_format = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s', datefmt='%d.%m.%y, %H:%M:%S')
+        log_handler_stream.setFormatter(self.log_format)
+        self.gui_loghandler.setFormatter(self.log_format)
 
         # Handler dem Logger hinzufuegen
         self.logger.addHandler(log_handler_stream)
-        #self.logger.addHandler(log_handler_file)
         self.logger.addHandler(self.gui_loghandler)
 
         # Zusammenhaenge zwischen Knoepfen (etc.) in der GUI (Frontend) und Funktionen dieses Skripts (Backend) definieren
@@ -220,12 +216,6 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
 
 
     def Messung_starten(self):
-        self.logger.info('Messung gestartet mit folgenden Einstellungen:')
-        self.logger.info(f'H = [{self.hMinSlider.value()}, {self.hMaxSlider.value()}]')
-        self.logger.info(f'S = [{self.sMinSlider.value()}, {self.sMaxSlider.value()}]')
-        self.logger.info(f'V = [{self.vMinSlider.value()}, {self.vMaxSlider.value()}]')
-        self.logger.info(f'min. Area = {self.minAreaSlider.value()}')
-
         # Durchmesser aus GUI-Eingabe extrahieren, bis zu denen je Zyklus aufgeblasen werden soll.
         try:
             self.zyklen_durchmesser = [float(x) for x in self.lineEdit_Durchmesser_Zyklen.text().strip().replace(' ','').split(',')]
@@ -245,6 +235,24 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
             self.logger.warning(f'Der Maximaldurchmesser ist {d_max}mm. Die Messung wurde nicht gestartet.')
             return
 
+        # Startzeit merken
+        self.time_start = datetime.now()
+
+        # Output-Ordner anlegen
+        self.outdir = f'./Messungen/{self.time_start.strftime("%Y_%m_%d__%H_%M_%S")}/'   # mit '/' am Ende!
+        Path(self.outdir).mkdir(parents=True)
+
+        # Log-Handler fuer Logging in Datei hinzufuegen
+        self.log_handler_file = logging.FileHandler(self.outdir+'Log.txt')
+        self.log_handler_file.setFormatter(self.log_format)
+        self.logger.addHandler(self.log_handler_file)
+
+        self.logger.info('Messung gestartet mit folgenden Einstellungen:')
+        self.logger.info(f'H = [{self.hMinSlider.value()}, {self.hMaxSlider.value()}]')
+        self.logger.info(f'S = [{self.sMinSlider.value()}, {self.sMaxSlider.value()}]')
+        self.logger.info(f'V = [{self.vMinSlider.value()}, {self.vMaxSlider.value()}]')
+        self.logger.info(f'min. Area = {self.minAreaSlider.value()}')
+
         # Durchmesserwerte loggen
         tmp_str = ''
         for d in self.zyklen_durchmesser:
@@ -263,13 +271,6 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
         global ser
         ser = serial.Serial(self.port, 9600)
         ser.write(b'o')
-
-        # Startzeit merken
-        self.time_start = datetime.now()
-
-        # Output-Ordner anlegen
-        self.outdir = f'./Messungen/{self.time_start.strftime("%Y_%m_%d__%H_%M_%S")}/'   # mit '/' am Ende!
-        Path(self.outdir).mkdir(parents=True)
 
         # initialize lists for time, pressure and diameter
         self.time_pressure = []
@@ -329,6 +330,7 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
         self.interaktion_aktivieren()
 
         self.logger.info("Task wurde manuell beendet!")
+        self.logger.removeHandler(self.log_handler_file)
 
         # serielle Schnittstelle schliessen
         ser.close()
