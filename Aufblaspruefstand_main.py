@@ -520,8 +520,8 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
                             self.time_last_diameter_query = datetime.now()
 
                         # Feststellen, ob Magnetventil geoeffnet/geschlossen werden soll
-                        # Falls Durchmesser beim Aufblasen ueber den Solldurchmesser des akt. Zyklus anwaechst, Magnetventil schliessen --> entlueften
-                        if (self.aufblasen and (durchmesser >= self.zyklen_durchmesser[self.zyklus])):
+                        # Falls Durchmesser beim Aufblasen 4x hintereinander ueber den Solldurchmesser des akt. Zyklus anwaechst, Magnetventil schliessen --> entlueften
+                        if (self.aufblasen and all([x >= self.zyklen_durchmesser[self.zyklus] for x in self.diameter[-4:]])):
                             ser.write(b'c')
                             self.aufblasen = False
                             self.entlueften_beendet = False
