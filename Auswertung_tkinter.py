@@ -144,7 +144,11 @@ class Application:
             # Feststellen, ob der rechte Index mehr als 3% groesser als der Mittelwert des
             # linken und mittleren (aktuellen) Wertes ist
             if (-1 + self.diameter_raw[ind_right]/np.mean([self.diameter_raw[ind_left], self.diameter_raw[ind_mid]]) > 0.03):
-                ausreisser_indices.append(ind_right)
+                # Nur als Ausreisser markieren, falls Durchmesser ueber Schwellwert liegt.
+                # (dies soll False-Positives -hauptsaechlich zu Beginn der Messung- beheben)
+                # (ein niedriger Schwellwert sollte unkritisch sein, da Ausreisser aufgrund der staerkeren Reflektionen erst bei groesseren Durchmesser auftauchen)
+                if self.diameter_raw[ind_mid] >= 70:
+                    ausreisser_indices.append(ind_right)
 
         # Ausreisser in absteigender Reihenfolge aus der Liste loeschen,
         # da sonst die Indizes verschoben und falsche Werte geloescht werden wuerden
