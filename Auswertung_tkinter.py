@@ -13,16 +13,26 @@ class Application:
         # setup tkinter
         self.win = tk.Tk()
         self.win.title('Auswertung')
+        self.win.geometry('1700x1200')
         self.win.protocol('WM_DELETE_WINDOW', self.destructor)
 
         # Read data
-        self.infile = './Messungen/TIME_STAMP/Auswertung.txt'
+        self.infile = tk.filedialog.askopenfilename(title='Auswertung.txt öffnen', initialdir='./')
         df = pd.read_csv(self.infile, sep=';', decimal='.', header=0)
 
         # Save data in separate lists
-        self.time = df['Versuchslaufzeit / s'].to_numpy()
-        self.pressure_raw = df['Druck / mbar'].to_numpy()
-        self.diameter_raw = df['Durchmesser / mm'].to_numpy()
+        self.time_orig = df['Versuchslaufzeit / s'].to_list()
+        self.pressure_orig = df['Druck / mbar'].to_list()
+        self.diameter_orig = df['Durchmesser / mm'].to_list()
+
+        # Kopien der Daten anlegen, in denen die Ausreisser entfernt werden sollen.
+        # .copy() ist notwendig, da sonst die Originallisten bearbeitet werden
+        self.time = self.time_orig.copy()
+        self.pressure_raw = self.pressure_orig.copy()
+        self.diameter_raw = self.diameter_orig.copy()
+
+        # Daten zu Durchmesser-Ausreissern entfernen
+        self.ausreisser_entfernen()
 
         # Define axis labels
         self.pressure_label = 'Pressure / mbar'
@@ -78,6 +88,9 @@ class Application:
         self.axs[2].clear()
 
         # new plot
+        # orig measurements
+        self.axs[0].plot(self.time_orig, self.pressure_orig, c=self.colors[0], alpha=0.2)
+        self.axs[1].plot(self.time_orig, self.diameter_orig, c=self.colors[0], alpha=0.2)
         # raw measurements
         self.axs[0].plot(self.time, self.pressure_raw, c=self.colors[0])
         self.axs[1].plot(self.time, self.diameter_raw, c=self.colors[0])
@@ -101,6 +114,52 @@ class Application:
         plt.draw()
 
 
+    def ausreisser_entfernen(self):
+        """
+        Es tauchen in den Durchmesserwerten ggf. Ausreisser auf, die hier entfernt werden.
+        Die Werte reissen (bislang) immer nur bis oben aus. Nur dies ist hier aktuell implementiert!
+        In den Daten tauchten bislang maximal zwei Ausreisser hintereinander auf.
+        Der Code sollte allerdings auch bei mehreren aufeinanderfolgenden Ausreissern funktionieren.
+        """
+        ausreisser_indices = []
+
+        # Liste mit Durchmessern vom zweiten bis zum vorletzten Eintrag durchlaufen
+        # und dabei immer einen Wert "nach links" und einen Wert "nach rechts" anschauen.
+        for i in range(1, len(self.diameter_raw)-1):
+
+            ind_mid   = i
+            ind_right = i+1
+
+            # Falls aktueller Index in Liste mit zu loeschenden Indizes ist (Ausreisser),
+            # nach dem naechsten Index nach links suchen, der kein Ausreisser ist
+            while ind_mid in ausreisser_indices:
+                ind_mid -= 1
+
+            # Falls linker Index in Liste mit zu loeschenden Indizes ist (Ausreisser),
+            # nach dem naechsten Index nach links suchen, der kein Ausreisser ist
+            ind_left = ind_mid-1
+            while ind_left in ausreisser_indices:
+                ind_left -= 1
+
+            # Feststellen, ob der rechte Index mehr als 3% groesser als der Mittelwert des
+            # linken und mittleren (aktuellen) Wertes ist
+            if (-1 + self.diameter_raw[ind_right]/np.mean([self.diameter_raw[ind_left], self.diameter_raw[ind_mid]]) > 0.03):
+                ausreisser_indices.append(ind_right)
+
+        # Ausreisser in absteigender Reihenfolge aus der Liste loeschen,
+        # da sonst die Indizes verschoben und falsche Werte geloescht werden wuerden
+        print('Die folgenden Indizes (Werte in der Mitte) wurden als Ausreisser detektiert und geloescht:')
+        for i in reversed(ausreisser_indices):
+            del self.diameter_raw[i]
+            del self.pressure_raw[i]
+            del self.time[i]
+
+            try:
+                print(f'Index {i-1},{i},{i+1}: {self.diameter_orig[i-1]:.2f}, {self.diameter_orig[i]:.2f}, {self.diameter_orig[i+1]:.2f}')
+            except IndexError:
+                pass
+
+
     def save_plot_and_data(self):
         outfile_pdf = self.infile.replace('.txt', f'__bw_ord_{self.slider_bw_ord.get()}__bw_fc_{self.slider_bw_fc.get():.2f}.pdf')
         plt.savefig(outfile_pdf, format='pdf', bbox_inches='tight')
@@ -115,6 +174,7 @@ class Application:
                                'Durchmesser (geglaettet) / mm': self.diameter_filtered})
         df_neu.to_csv(outfile_txt, sep=';', encoding='utf-8', index=False, header=True)
         print(f'Speichere Daten der Auswertung in {outfile_txt} ab.')
+        tk.messagebox.showinfo(title='Output', message=f'Speichere Daten der Auswertung in {outfile_txt} ab.')
 
 
     def reset_values(self):
