@@ -333,6 +333,7 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
         self.logger.removeHandler(self.log_handler_file)
 
         # serielle Schnittstelle schliessen
+        ser.write(b'c')  # sicherheitshalber das Magnetventil (ggf. nochmals) schliessen
         ser.close()
         return
 
