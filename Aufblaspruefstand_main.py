@@ -266,17 +266,19 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
         self.zyklus = 0
         self.zeit_ende_entlueften = datetime.now()
         self.verzoegerung_aufblasen = 2  # Sekunden
+        self.diameter_written = False
 
         # serielle Schnittstelle verbinden und Magnetventil oeffnen
         global ser
         ser = serial.Serial(self.port, 9600)
         ser.write(b'o')
 
-        # initialize lists for time, pressure and diameter
+        # initialize lists for time, pressure, diameter and cycle
         self.time_pressure = []
         self.time_diameter = []
         self.pressure = []
         self.diameter = []
+        self.cycle = []
 
         # Worker und Thread initialisieren (jeweils ohne 'parent', Quelle: https://stackoverflow.com/a/33453124)
         self.worker_druck = Worker_Druck(self.port)
@@ -319,7 +321,7 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
         self.logger.info(f'Speichere aufgezeichnete Druckmessung in {outfile_druck} ab.')
 
         outfile_durchmesser = self.outdir + 'Durchmesser.txt'
-        self.df_durchmesser = pd.DataFrame({'Zeitpunkt Messung': self.time_diameter, 'Durchmesser / mm': self.diameter})
+        self.df_durchmesser = pd.DataFrame({'Zeitpunkt Messung': self.time_diameter, 'Durchmesser / mm': self.diameter, 'Zyklus': self.cycle})
         self.df_durchmesser.to_csv(outfile_durchmesser, sep=';', encoding='utf-8', index=False, header=True)
         self.logger.info(f'Speichere aufgezeichnete Durchmessermessung in {outfile_durchmesser} ab.')
 
@@ -522,6 +524,12 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
 
                             self.time_last_diameter_query = datetime.now()
 
+                            # Flag speichern, ob akt. Durchmesser herausgeschrieben wurde,
+                            # um weiter unten auch den Zyklus herausschreiben zu koennen
+                            self.diameter_written = True
+                        else:
+                            self.diameter_written = False
+
                         # Feststellen, ob Magnetventil geoeffnet/geschlossen werden soll
                         # Falls Durchmesser beim Aufblasen 4x hintereinander ueber den Solldurchmesser des akt. Zyklus anwaechst, Magnetventil schliessen --> entlueften
                         if (self.aufblasen and all([x >= self.zyklen_durchmesser[self.zyklus] for x in self.diameter[-4:]])):
@@ -529,17 +537,32 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
                             self.aufblasen = False
                             self.entlueften_beendet = False
                         # Falls Druck beim Entlueften unter 10 mbar faellt, Magnetventil oeffnen --> aufblasen
-                        elif (not(self.aufblasen) and (self.pressure[-1] < 10) and (self.zyklus < len(self.zyklen_durchmesser)-1)):
+                        elif (not(self.aufblasen) and (self.pressure[-1] < 10)):
                             # Den Zeitpunkt des erstmaligen Betretens der Bedingung (<10 mbar) festhalten
                             if (not self.entlueften_beendet):
                                 self.zeit_ende_entlueften = now
                                 self.entlueften_beendet = True
 
-                            # Erst nach der Verzoegerungszeit wieder erneut aufblasen
-                            if ((now-self.zeit_ende_entlueften).total_seconds() >= self.verzoegerung_aufblasen):
+                            # Erst nach der Verzoegerungszeit wieder erneut aufblasen,
+                            # aber nur, falls die geforderten Zyklen noch nicht alle durchlaufen wurden
+                            if (((now-self.zeit_ende_entlueften).total_seconds() >= self.verzoegerung_aufblasen) and (self.zyklus < len(self.zyklen_durchmesser)-1)):
                                 ser.write(b'o')
                                 self.aufblasen = True
                                 self.zyklus += 1
+
+                        # Falls der Durchmesser herausgeschrieben wurde, auch den akt. Zyklus herausschreiben
+                        if self.diameter_written:
+                            # Falls Aufblas- bzw. Entlueftungszyklus aktiv, speichere Zykluszahl,
+                            # ansonsten schreibe -1 --> hilfreich fuer spaetere Auswertung
+                            # Falls Aufblaszyklus aktiv
+                            if self.aufblasen:
+                                self.cycle.append(self.zyklus)
+                            else:
+                                # Falls Entlueftungszyklus aktiv, aber noch nicht beendet
+                                if (self.aufblasen == self.entlueften_beendet):
+                                    self.cycle.append(self.zyklus)
+                                else:
+                                    self.cycle.append(-1)
 
                 except UnboundLocalError:
                     # if pixel_mm_ratio is not present, pass
