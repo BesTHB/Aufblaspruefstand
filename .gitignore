@@ -1,5 +1,9 @@
+*.aux
 *.bak
 *.exe
+*.log
+*.out
+*.synctex.gz
 dist/
 build/
 Messungen/
