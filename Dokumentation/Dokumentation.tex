@@ -1,0 +1,200 @@
+\documentclass[german, 11pt]{scrartcl}
+\usepackage[a4paper]{geometry}
+\geometry{verbose,tmargin=3.5cm,bmargin=2.0cm,lmargin=2.5cm,rmargin=2.5cm}
+
+\usepackage[utf8]{inputenc}
+\usepackage[ngerman]{babel}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{bm}                          % bold math symbols
+\usepackage{xcolor}
+
+\usepackage{float}                       % mit der option \begin{figure}[H] eine Grafik an eine feste Stelle bringen
+\setlength\parindent{0pt}                % Im kompletten Text keine Einrueckung nach Absatz
+
+
+%opening
+\title{Dokumentation Aufblasprüfstand}
+\author{}
+
+\begin{document}
+
+\maketitle
+
+\section{Vorbereitung des PCs/Laptops}
+Dieses Repository enthält alle notwendigen Dateien zum Aufblasprüfstand.
+Sowohl die Software auf dem Mikrocontroller, als auch das Versuchsprogramm und die Auswertung basieren auf (Micro-) Python.
+Deshalb muss auf dem PC zunächst Python installiert werden, worauf an dieser Stelle nicht weiter eingegangen wird.
+Alle Pakete, die zusätzlich benötigt werden, sind in der Datei 'requirements.txt' aufgelistet
+und können mit \textit{pip} installiert werden.
+Es empfiehlt sich hierzu in dem vorliegenden Ordner zum Aufblasprüfstand eine virtuelle Python-Umgebung zu erstellen,
+in welcher lediglich die benötigten Zusatzpakete installiert sind. Dies hat den Vorteil, dass man mehrere virtuelle Python-Umgebungen
+mit ihren eigenen Zusatzpaketen und Versionsnummern auf einem PC haben kann.
+
+\subsection{Virtuelle Python-Umgebung}
+\begin{itemize}
+    \item Ein Powershell-Fenster im Ordner 'Aufblasprüfstand' (Hauptordner des Repos) öffnen (Shift + rechte Maustaste)
+    \item Eine virtuelle Python-Umgebung anlegen (nur einmal nötig):\\
+    \texttt{python -m venv py\_venv} \hfill (hierdurch entsteht der Ordner 'py\_venv')
+    \item Die virtuelle Python-Umgebung in der Powershell aktivieren (bei jedem Neustart der Powershell nötig):\\
+    \texttt{py\_venv\textbackslash Scripts\textbackslash Activate.ps}
+    \item Die notwendigen Zusatzpakete installieren (nur einmal nötig):\\
+    \texttt{pip install -r requirements.txt}
+\end{itemize}
+
+\section{Hardware}
+
+\subsection{Komponenten}
+\begin{itemize}
+    \item Raspberry Pi Pico
+    \item Webcam Sandberg 133-97 Flex 1080P HD
+    \item Drucksensor, 5V DC, 10psi
+    \item 3/2-Wege Magnetventil, 12V DC
+    \item Transistor XY
+    \item Widerstände XY
+    \item Freilaufdiode XY
+\end{itemize}
+
+Der Aufblasprüfstand produziert Daten, welche digital vorliegen und an den Laptop übertragen werden müssen.
+Dies sind das Videosignal der Webcam sowie das Drucksignal des Drucksensors.\\
+
+Während das Videosignal über die USB-Verbindung der Webcam zum PC übertragen wird,
+ist für die Erfassung und Übertragung der Druckwerte ein Mikrocontroller zuständig (Raspberry Pi Pico).\\
+
+Desweiteren wartet der Mikrocontroller auf Befehle des Laptops bzw. des Versuchsprogramms, um das Magnetventil zu schalten
+und somit Luft zu- oder abzuführen.
+Der Mikrocontroller muss somit sowohl Daten erfassen und ausgeben, und andererseits Daten einlesen.
+Eine solche Aufgabe würde typischerweise ein Datenaufzeichnungsgerät (Data Aquisition/DAQ, z.B. von National Instruments) übernehmen,
+auf welches aufgrund des Preises hier jedoch versucht wurde zu verzichten.\\
+
+Um mit dem Mikrocontroller gleichzeitig Daten aus- und einlesen zu können, laufen auf ihm zwei Threads parallel.
+Hierzu dient Micropython als Firmware auf dem Mikrocontroller, welches Multi-Threading erlaubt.
+
+\subsection{Mikrocontroller flashen}
+Diese Schritte sind nur notwendig, sofern ein neuer Pico vorliegt, oder eine neuere Version der Micropython-Firmware
+auf dem Pico installiert werden soll:
+
+\begin{itemize}
+    \item Neuste Micropython-Firmware (Datei mit Endung '.uf2') herunterladen \footnote[1]{\url{https://micropython.org/download/rp2-pico/}}
+    \item Die USB-Verbindung zwischen Pico und Laptop trennen und neu anschließen, dabei den weißen Knopf 'Bootsel' bis zum Einstecken des USB-Kabels gedrückt halten. Dadurch erscheint der Pico als neues USB-Gerät.
+    \item Die heruntergeladene Firmware-Datei auf den Pico kopieren. Dies wird durch den Pico erkannt, wodurch er automatisch neu startet.
+\end{itemize}
+
+\subsection{Skript auf den Mikrocontroller laden}
+Diese Schritte sind nur notwendig, sofern ein neuer Pico vorliegt, oder eine neuere Version des Hauptskriptes auf dem Pico installiert werden soll:
+\begin{itemize}
+    \item Pico per USB mit dem PC verbinden (ohne Drücken von 'Bootsel')
+     \item \textit{optional:} COM-Port des Picos im Geräte-Manager heraussuchen
+    \item Powershell-Fenster im Ordner 'Aufblasprüfstand' öffnen
+    \item virtuelle Python-Umgebung aktivieren
+    \item Remote Shell auf dem Pico ausführen:\\
+    \texttt{rshell -p COM6} \hfill (den COM-Port des Picos benutzen, s.o.)
+    \item Das Hauptskript auf den Pico kopieren:\\
+    \texttt{cp pi\_pico/serial\_read/main.py /pyboard}
+\end{itemize}
+
+\subsection{Schaltung Mikrocontroller}
+% Drucksensor
+Der Drucksensor ist an die 3.3V Spannungsversorgung des Picos angeschlossen und gibt ein Analogsignal aus,
+welches am Pico an Pin\footnote[2]{Pinbelegung Raspberry Pi Pico: \url{https://pico.pinout.xyz/}} 'A0' bzw. 'GP26' angeschlossen ist,
+welcher ein ADC-Eingang (Analog-Digital-Converter) ist, an dem max. 3.3V anliegen dürfen. Die ADC-Eingänge des Picos arbeiten mit 16 bit (0-65535).
+Die Kennlinie des Drucksensors ist so konzipiert, dass bei 0psi 10\% und bei 10psi 90\% seiner Versorgungsspannung anliegen:
+
+\begin{equation*}
+    \begin{aligned}
+        v_{\text{in}} &= 3.3V, \quad V = \frac{sensorVal}{2^{16}}\,v_{\text{in}} \\
+        v_0 &= \frac{1}{10}\,v_{\text{in}}, \quad v_{10} = \frac{9}{10}\,v_{\text{in}} \\
+        m &= \frac{10\,\text{psi}}{v_{10}-v_0}, \quad b = -v_0 m \\
+        p_{\text{psi}} &= m \cdot V + b, \quad p_{\text{mbar}} = 68.9476\,p_{\text{psi}}
+    \end{aligned}
+\end{equation*}
+
+Der Sensorwert wird im Hauptskript auf dem Pico mit der Funktion \texttt{read\_u16()} ausgelesen.\\
+
+% Magnetventil
+Das Magnetventil wird mit einem separaten 12V-Netzteil bespeist. Um es jedoch mit den 3.3V-Pins des Picos beschalten zu können,
+kann eine Transistorschaltung verwendet werden. Desweiteren ist eine Freilaufdiode notwendig, da beim Ausschalten des Magnetventils
+eine induktive Last andererseits zu Spannungsspitzen in den dahinterliegenden Bauteilen führen würde.
+Hierfür ist eine Freilaufdiode vom Typ XY ausreichend.\\
+
+Die Transistorschaltung ist in Abb. XY gezeigt. Hierin ist ein Bipolartransistor (NPN) vom Typ XY verbaut.
+Er besitzt eine Verstärkung von $\beta = XY$.
+Zwischen Basis und Emitter fällt bei dieser Art von Transistor aufgrund der enthaltenen Diode(n) eine Spannung von 0.7V (?!) ab.
+Steigt die Basis-Emitter-Spannung über einen bestimmten Wert, schaltet der Transistor zwischen Kollektor und Emitter durch.
+
+\section{Software}
+Das Versuchsprogramm 'Aufblaspruefstand\_main.py' stellt das Kamerabild inklusive des detektierten Luftballons
+und dessen Durchmesser dar. Desweiteren trägt es die Druck- und Durchmesserwerte während der Messung über der Zeit auf.
+Vor Beginn der Messung ermöglicht es, die Bildeinstellungen zur Objekterkennung zu justieren.
+Am Ende der Messung korreliert es die Druck- und Durchmesserwerte zeitlich und speichert die Rohdaten sowie die korrelierten Daten separat ab.\\
+
+Die Messung des Durchmessers geschieht durch Objekterkennung bzw. Auswertung des Kamerabildes. Hierzu wird \textit{opencv} verwendet.
+Die Auswertung des Kamerabildes und die des Drucksignals arbeiten parallel in separaten Threads,
+weshalb die Druck- und Durchmesserdaten zeitlich nicht automatisch korreliert sind.
+
+Vielmehr wird die Taktung des Drucksignals im Hauptskript des Mikrocontrollers festgelegt.
+Sobald der Mikrocontroller ein Drucksignal ausgibt, wird ein Event im Thread der Durchmessermessung getriggert
+und die Uhrzeit des Events gespeichert.
+
+Die Taktung des Drucksignals bzw. eine schnellere Taktung muss im Versuchsprogramm für die Durchmessermessung übernommen werden,
+was in der Variable 'self.dt\_serial' geschieht. Das Versuchsprogramm wertet im vorgegebenen Takt das Kamerabild
+hinsichtlich des Ballondurchmessers aus und speichert ebenfalls die jeweiligen Uhrzeiten.
+
+Die Uhrzeiten der Druck- und der Durchmesserwerte werden typischerweise nicht identisch sein.
+Mit Hilfe des Python-Pakets 'pandas' können beide Messreihen jedoch zeitlich korreliert werden.
+Hierbei bleiben alle Druckwerte erhalten und alle Durchmesserwerte mit den geringsten zeitlichen Abständen
+zu den Druckwerten, werden übernommen. Die Anzahl der Druck- und Durchmesserwerte ist im Anschluss identisch.
+Bei dieser Art der zeitlichen Korrelation ist es also wichtig, die Durchmesserwerte öfter abzutasten, als die Druckwerte!
+
+\section{Versuche}
+\subsection{Vorbereitung}
+\begin{itemize}
+    \item Laptop einschalten, Webcam und Pico per USB mit dem Laptop verbinden, 12V-Netzteil für Magnetventil einstecken
+    \item Druckluftschlauch ankuppeln, Eingangsdruck sicherstellen
+    \item (Der Druckminderer ist fast geschlossen und somit so eingestellt, dass die Füllzeit des Luftballons nicht zu schnell ist.)
+    \item manuelles Druckablassventil schließen
+    \item Webcamhalterung auf den Tisch absenken und Gelenk arretieren/festschrauben
+    \item Luftballon einspannen
+    \item Versuchsprogramm starten:
+    \begin{itemize}
+        \item Powershell-Fenster im Ordner 'Aufblasprüfstand' (Hauptordner des Repos) öffnen (Shift + rechte Maustaste)
+        \item virtuelle Python-Umgebung aktivieren: \texttt{py\_venv\textbackslash Scripts\textbackslash Activate.ps}
+        \item Versuchsprogramm starten: \texttt{python Aufblaspruefstand\_main.py}
+    \end{itemize}
+    \item Ausrichtung des Aruco-Markers kontrollieren. Dieser muss in der Symmetrieebene des Luftballons liegen.
+    \item Ausrichtung der Webcam kontrollieren. Hierzu das Bild im Versuchsprogramm beobachten.
+    Der obere Bildrand sollte knapp über den breitesten Punkt/Durchmesser des Luftballons ragen.
+    Der zylindrische Teil darf nicht sichtbar sein bzw. der Luftballon darf nicht als Kugel im Videobild zu sehen sein.
+    Ansonsten erkennt die Bildauswertung ggf. die Höhe des Luftballons als dessen Breite/Durchmesser.\\
+    Der untere Bildrand sollte knapp unterhalb des Aruco-Markers abschließen.
+    In einem Abstand der Webcam von ca. XY mm zum Aruco-Marker sollte dies der Fall sein.
+\end{itemize}
+
+\subsection{Durchführung}
+\begin{itemize}
+    \item (Luftballon ggf. minimal mit dem Mund mit Luft füllen, sodass seine Kugelform sichtbar ist $\leadsto$ Durchmesserauswertung)
+    \item Im Versuchsprogramm den Regler 'minArea' so weit runter regulieren, bis der Luftballon detektiert wird.
+    \item Im Feld 'Zyklen' die anzufahrenden Durchmesser (komma-getrennt) eingeben, z.B. '120, 120, 150, 150, 200, 200'
+    \item 'Messung starten' drücken
+    \item Nachdem der letzte Zyklus durchlaufen wurde, manuell 'Messung beenden' drücken.\\
+    Die Druck- und Durchmesserdaten werden daraufhin zeitlich korreliert und im Ordner 'Messungen' abgelegt.
+\end{itemize}
+
+\subsection{Auswertung}
+Um die Daten für einen Plot vorzubereiten, können sie mit Hilfe eines GUI-Skriptes geglättet werden.
+Dabei kommt ein Tiefpass- bzw. Butterworth-Filter (typischerweise dritter Ordnung) zum Einsatz,
+welcher die Daten an der Grenzfrequenz auf das $\frac{1}{\sqrt{2}}$-fache des ursprünglichen Signals abschwächt.
+\begin{itemize}
+    \item Auswerteskript (GUI) öffnen:
+    \begin{itemize}
+        \item Powershell-Fenster im Ordner 'Aufblasprüfstand' (Hauptordner des Repos) öffnen (Shift + rechte Maustaste)
+        \item virtuelle Python-Umgebung aktivieren: \texttt{py\_venv\textbackslash Scripts\textbackslash Activate.ps}
+        \item Auswerteskript (GUI) öffnen: \texttt{python Auswertung\_tkinter.py}
+    \end{itemize}
+    \item Messung einladen (Datei 'Auswertung.txt')
+    \item Schieberegler für die Glättung der Messwerte anpassen.
+    \item Daten speichern/exportieren (selber Ordner, wie eingeladene Daten).
+\end{itemize}
+
+\end{document}
