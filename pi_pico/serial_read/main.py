@@ -35,4 +35,4 @@ _thread.start_new_thread(lesen, ())
 # Hauptprogramm
 while True:
     print(sensor.read_u16())    # read analog input (will come as an unsigned 16-bit integer, which ranges from 0-65535 !)
-    sleep_ms(200)               # sleep 0.2s
+    sleep_ms(100)               # sleep 0.2s

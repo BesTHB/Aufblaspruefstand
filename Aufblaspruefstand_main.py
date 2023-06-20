@@ -188,7 +188,7 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
         # Werte Druckmessung
         self.port = 'COM6'  # serieller Port (Pi Pico)
         self.thread_druck = None
-        self.dt_serial = 0.2  # Zeitdifferenz zwischen zwei Eingaengen des Druckmesssignals der seriellen Schnittstelle
+        self.dt_serial = 0.1  # Zeitdifferenz zwischen zwei Eingaengen des Druckmesssignals der seriellen Schnittstelle
 
         # GraphicsLayoutWidget fuer Plot in der GUI
         label_styles = {'color':'r', 'font-size':'12pt'}
@@ -536,8 +536,8 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
                             ser.write(b'c')
                             self.aufblasen = False
                             self.entlueften_beendet = False
-                        # Falls Druck beim Entlueften unter 10 mbar faellt, Magnetventil oeffnen --> aufblasen
-                        elif (not(self.aufblasen) and (self.pressure[-1] < 10)):
+                        # Falls Druck beim Entlueften unter 5 mbar faellt, Magnetventil oeffnen --> aufblasen
+                        elif (not(self.aufblasen) and (self.pressure[-1] < 5)):
                             # Den Zeitpunkt des erstmaligen Betretens der Bedingung (<10 mbar) festhalten
                             if (not self.entlueften_beendet):
                                 self.zeit_ende_entlueften = now
