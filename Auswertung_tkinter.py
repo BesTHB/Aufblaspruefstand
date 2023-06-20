@@ -24,12 +24,20 @@ class Application:
         self.time_orig = df['Versuchslaufzeit / s'].to_list()
         self.pressure_orig = df['Druck / mbar'].to_list()
         self.diameter_orig = df['Durchmesser / mm'].to_list()
+        if 'Zyklus' in df:
+            self.cycle_orig = df['Zyklus'].to_list()
+        else:
+            self.cycle_orig = None
 
         # Kopien der Daten anlegen, in denen die Ausreisser entfernt werden sollen.
         # .copy() ist notwendig, da sonst die Originallisten bearbeitet werden
         self.time = self.time_orig.copy()
         self.pressure_raw = self.pressure_orig.copy()
         self.diameter_raw = self.diameter_orig.copy()
+        if self.cycle_orig:
+            self.cycle_raw = self.cycle_orig.copy()
+        else:
+            self.cycle_raw = None
 
         # Daten zu Durchmesser-Ausreissern entfernen
         self.ausreisser_entfernen()
@@ -40,7 +48,7 @@ class Application:
         self.time_label = 'Time / s'
 
         # Define colors for plot
-        self.colors = ['tab:blue', 'tab:orange', 'tab:green', 'tab:red']
+        self.colors = ['tab:blue', 'tab:orange', 'tab:green', 'tab:red', 'tab:purple', 'tab:brown', 'tab:olive']
 
         # initialize plot canvas
         self.fig, self.axs = plt.subplots(3, 1)
@@ -50,7 +58,30 @@ class Application:
         self.plot_canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
         # Indices of cycle starts with different load amplitudes -> different coloring
-        self.start_cycles = [0, len(self.time)]  # min. [0, len(self.time)]
+        self.cycles = [0]
+        if self.cycle_raw:
+            self.start_cycles = [0]
+            for i in range(1, len(self.cycle_raw)):
+                if (self.cycle_raw[i] != self.cycle_raw[i-1]):
+                    self.start_cycles.append(i)
+
+                    # save the cycle number (without "-1"-cycles)
+                    if self.cycle_raw[i] != -1:
+                        self.cycles.append(self.cycle_raw[i])
+
+            self.start_cycles.append(len(self.cycle_raw))
+        else:
+            self.start_cycles = [0, len(self.time)]  # min. [0, len(self.time)]
+
+        # create dropdown menu (optionmenu) if cycles are available
+        if self.cycle_raw:
+            print(self.start_cycles)
+            print(self.cycles)
+            #option_list = list(range(1, self.cycles+1))
+            self.option_value = tk.StringVar(self.win)  # variable to keep track of the picked option
+            self.option_value.set(self.cycles[0])
+            self.question_menu = tk.OptionMenu(self.win, self.option_value, *self.cycles)
+            self.question_menu.pack()
 
         # create sliders for butterworth filter
         self.bw_ord_init = 3
@@ -97,9 +128,19 @@ class Application:
 
         # filtered/smoothed data, colored per load amplitude
         for i in range(len(self.start_cycles)-1):
-            self.axs[0].plot(self.time[self.start_cycles[i]:self.start_cycles[i+1]], self.pressure_filtered[self.start_cycles[i]:self.start_cycles[i+1]], c=self.colors[i+1])
-            self.axs[1].plot(self.time[self.start_cycles[i]:self.start_cycles[i+1]], self.diameter_filtered[self.start_cycles[i]:self.start_cycles[i+1]], c=self.colors[i+1])
-            self.axs[2].plot(self.diameter_filtered[self.start_cycles[i]:self.start_cycles[i+1]], self.pressure_filtered[self.start_cycles[i]:self.start_cycles[i+1]], c=self.colors[i+1])
+            # "-1"-cycles will be black, all other cycles will have a different color
+            if self.cycle_raw:
+                tmp_cycle = self.cycle_raw[self.start_cycles[i]]
+                if tmp_cycle != -1:
+                    color = self.colors[tmp_cycle+1]  # +1, weil Liste mit Farben mit tab:blue beginnt, was bereits fuer die ungefilterte Kurve benutzt wird
+                else:
+                    color = 'k'
+            else:
+                color = 'tab:orange'
+
+            self.axs[0].plot(self.time[self.start_cycles[i]:self.start_cycles[i+1]+1], self.pressure_filtered[self.start_cycles[i]:self.start_cycles[i+1]+1], c=color)
+            self.axs[1].plot(self.time[self.start_cycles[i]:self.start_cycles[i+1]+1], self.diameter_filtered[self.start_cycles[i]:self.start_cycles[i+1]+1], c=color)
+            self.axs[2].plot(self.diameter_filtered[self.start_cycles[i]:self.start_cycles[i+1]+1], self.pressure_filtered[self.start_cycles[i]:self.start_cycles[i+1]+1], c=color)
 
         self.axs[0].set_ylabel(self.pressure_label)
         self.axs[1].set_xlabel(self.time_label)
@@ -156,6 +197,8 @@ class Application:
         for i in reversed(ausreisser_indices):
             del self.diameter_raw[i]
             del self.pressure_raw[i]
+            if self.cycle_raw:
+                del self.cycle_raw[i]
             del self.time[i]
 
             try:
