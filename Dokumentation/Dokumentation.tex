@@ -1,6 +1,6 @@
 \documentclass[german, 11pt]{scrartcl}
 \usepackage[a4paper]{geometry}
-\geometry{verbose,tmargin=3.5cm,bmargin=2.0cm,lmargin=2.5cm,rmargin=2.5cm}
+\geometry{verbose,tmargin=3.0cm,bmargin=2.0cm,lmargin=2.5cm,rmargin=2.5cm}
 
 \usepackage[utf8]{inputenc}
 \usepackage[ngerman]{babel}
@@ -90,6 +90,8 @@ Diese Schritte sind nur notwendig, sofern ein neuer Pico vorliegt, oder eine neu
     \item virtuelle Python-Umgebung aktivieren
     \item Remote Shell auf dem Pico ausführen:\\
     \texttt{rshell -p COM6} \hfill (den COM-Port des Picos benutzen, s.o.)
+    \item (Sollte dies nicht möglich sein [Fehler, Timeout, ...]:\\
+    Zunächst Datei 'flash\_nuke.uf2'\footnote[2]{\url{https://www.elektronik-kompendium.de/sites/raspberry-pi/2611111.htm}} und anschließend die Micropython-Firmware flashen und diese Schritte wiederholen)
     \item Das Hauptskript auf den Pico kopieren:\\
     \texttt{cp pi\_pico/serial\_read/main.py /pyboard}
 \end{itemize}
@@ -97,7 +99,7 @@ Diese Schritte sind nur notwendig, sofern ein neuer Pico vorliegt, oder eine neu
 \subsection{Schaltung Mikrocontroller}
 % Drucksensor
 Der Drucksensor ist an die 3.3V Spannungsversorgung des Picos angeschlossen und gibt ein Analogsignal aus,
-welches am Pico an Pin\footnote[2]{Pinbelegung Raspberry Pi Pico: \url{https://pico.pinout.xyz/}} 'A0' bzw. 'GP26' angeschlossen ist,
+welches am Pico an Pin\footnote[3]{Pinbelegung Raspberry Pi Pico: \url{https://pico.pinout.xyz/}} 'A0' bzw. 'GP26' angeschlossen ist,
 welcher ein ADC-Eingang (Analog-Digital-Converter) ist, an dem max. 3.3V anliegen dürfen. Die ADC-Eingänge des Picos arbeiten mit 16 bit (0-65535).
 Die Kennlinie des Drucksensors ist so konzipiert, dass bei 0psi 10\% und bei 10psi 90\% seiner Versorgungsspannung anliegen:
 
@@ -168,13 +170,13 @@ Bei dieser Art der zeitlichen Korrelation ist es also wichtig, die Durchmesserwe
     Der zylindrische Teil darf nicht sichtbar sein bzw. der Luftballon darf nicht als Kugel im Videobild zu sehen sein.
     Ansonsten erkennt die Bildauswertung ggf. die Höhe des Luftballons als dessen Breite/Durchmesser.\\
     Der untere Bildrand sollte knapp unterhalb des Aruco-Markers abschließen.
-    In einem Abstand der Webcam von ca. XY mm zum Aruco-Marker sollte dies der Fall sein.
+    In einem Abstand der Webcam von ca. 67cm zum Aruco-Marker sollte dies der Fall sein.
 \end{itemize}
 
 \subsection{Durchführung}
 \begin{itemize}
     \item (Luftballon ggf. minimal mit dem Mund mit Luft füllen, sodass seine Kugelform sichtbar ist $\leadsto$ Durchmesserauswertung)
-    \item Im Versuchsprogramm den Regler 'minArea' so weit runter regulieren, bis der Luftballon detektiert wird.
+    \item Im Versuchsprogramm den Regler 'min Area' so weit runter regulieren, bis der Luftballon detektiert wird.
     \item Im Feld 'Zyklen' die anzufahrenden Durchmesser (komma-getrennt) eingeben, z.B. '120, 120, 150, 150, 200, 200'
     \item 'Messung starten' drücken
     \item Nachdem der letzte Zyklus durchlaufen wurde, manuell 'Messung beenden' drücken.\\
