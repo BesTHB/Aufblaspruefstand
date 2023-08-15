@@ -144,8 +144,8 @@ class Application:
         self.rahmen4.pack(side='left', fill=tk.X, expand=True)
         tk.Label(self.rahmen4, text='Anfangsradius r0').grid(row=0)
         tk.Label(self.rahmen4, text='Anfangsdicke t0').grid(row=1)
-        self.spinbox_r0 = tk.Spinbox(self.rahmen4, justify='right', from_=20, to=30, increment=1, command=lambda: self.update_plot())
-        self.spinbox_t0 = tk.Spinbox(self.rahmen4, justify='right', from_=0.1, to=0.3, increment=0.01, command=lambda: self.update_plot())
+        self.spinbox_r0 = tk.Spinbox(self.rahmen4, justify='right', from_=20, to=30, increment=0.2, command=lambda: self.update_plot())
+        self.spinbox_t0 = tk.Spinbox(self.rahmen4, justify='right', from_=0.1, to=0.5, increment=0.01, command=lambda: self.update_plot())
         self.spinbox_r0.grid(row=0, column=1)
         self.spinbox_t0.grid(row=1, column=1)
 
