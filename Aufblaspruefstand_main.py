@@ -357,7 +357,7 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
         # Butterworth-Filter anwenden, um Druck- und Durchmessermessung zu glaetten
         bw_ord = 3
         bw_fc = 0.15
-        b, a = signal.butter(bw_ord, bw_fc, 'low', analog=False, fs=5)
+        b, a = signal.butter(bw_ord, bw_fc, 'low', analog=False, fs=10)
         w, h = signal.freqs(b, a)
         druck_gefiltert = signal.filtfilt(b, a, druck)
         durchmesser_gefiltert = signal.filtfilt(b, a, durchmesser)
@@ -538,7 +538,7 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
                             self.entlueften_beendet = False
                         # Falls Druck beim Entlueften unter 5 mbar faellt, Magnetventil oeffnen --> aufblasen
                         elif (not(self.aufblasen) and (self.pressure[-1] < 5)):
-                            # Den Zeitpunkt des erstmaligen Betretens der Bedingung (<10 mbar) festhalten
+                            # Den Zeitpunkt des erstmaligen Betretens der Bedingung (<5 mbar) festhalten
                             if (not self.entlueften_beendet):
                                 self.zeit_ende_entlueften = now
                                 self.entlueften_beendet = True
