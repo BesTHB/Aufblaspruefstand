@@ -76,14 +76,14 @@ class Application:
         # create sliders for butterworth filter
         self.bw_ord_init = 3
         self.bw_fc_init = 0.12  # < sampling_freq/2 (!)
-        self.sampling_freq = 10  # Hz
+        self.bw_fs_init = 10  # Hz, sampling frequency
         self.bw_fs = tk.IntVar()
         self.bw_ord = tk.IntVar()
         self.bw_fc = tk.DoubleVar()
         self.slider_bw_fs = tk.Scale(self.rahmen1, label='sampl. freq', orient='horizontal', from_=1, to=20, resolution=1, variable=self.bw_fs, command=lambda x: self.update_plot())
         self.slider_bw_ord = tk.Scale(self.rahmen1, label='bw_ord', orient='horizontal', from_=1, to=6, resolution=1, variable=self.bw_ord, command=lambda x: self.update_plot())
-        self.slider_bw_fc = tk.Scale(self.rahmen1, label='bw_fc', orient='horizontal', from_=0.02, to=self.sampling_freq/2-0.02, resolution=0.02, variable=self.bw_fc, command=lambda x: self.update_plot())
-        self.slider_bw_fs.set(self.sampling_freq)
+        self.slider_bw_fc = tk.Scale(self.rahmen1, label='bw_fc', orient='horizontal', from_=0.02, to=self.bw_fs_init/2-0.02, resolution=0.02, variable=self.bw_fc, command=lambda x: self.update_plot())
+        self.slider_bw_fs.set(self.bw_fs_init)
         self.slider_bw_ord.set(self.bw_ord_init)
         self.slider_bw_fc.set(self.bw_fc_init)
         self.slider_bw_fs.pack()
