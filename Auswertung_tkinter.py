@@ -76,13 +76,17 @@ class Application:
         # create sliders for butterworth filter
         self.bw_ord_init = 3
         self.bw_fc_init = 0.12  # < sampling_freq/2 (!)
-        self.sampling_freq = 5  # Hz
+        self.sampling_freq = 10  # Hz
+        self.bw_fs = tk.IntVar()
         self.bw_ord = tk.IntVar()
         self.bw_fc = tk.DoubleVar()
+        self.slider_bw_fs = tk.Scale(self.rahmen1, label='sampl. freq', orient='horizontal', from_=1, to=20, resolution=1, variable=self.bw_fs, command=lambda x: self.update_plot())
         self.slider_bw_ord = tk.Scale(self.rahmen1, label='bw_ord', orient='horizontal', from_=1, to=6, resolution=1, variable=self.bw_ord, command=lambda x: self.update_plot())
         self.slider_bw_fc = tk.Scale(self.rahmen1, label='bw_fc', orient='horizontal', from_=0.02, to=self.sampling_freq/2-0.02, resolution=0.02, variable=self.bw_fc, command=lambda x: self.update_plot())
+        self.slider_bw_fs.set(self.sampling_freq)
         self.slider_bw_ord.set(self.bw_ord_init)
         self.slider_bw_fc.set(self.bw_fc_init)
+        self.slider_bw_fs.pack()
         self.slider_bw_ord.pack()
         self.slider_bw_fc.pack(fill=tk.X)
 
@@ -197,8 +201,11 @@ class Application:
 
 
     def update_plot(self):
+        # set upper limit for fc slider, which has to be < sampling_freq/2
+        self.slider_bw_fc.configure(to=self.slider_bw_fs.get()/2-0.02)
+
         # apply lowpass digital Butterworth filter to raw measurements of pressure and diameter
-        b, a = signal.butter(self.slider_bw_ord.get(), self.slider_bw_fc.get(), 'low', analog=False, fs=self.sampling_freq)
+        b, a = signal.butter(self.slider_bw_ord.get(), self.slider_bw_fc.get(), 'low', analog=False, fs=self.slider_bw_fs.get())
         w, h = signal.freqs(b, a)
         self.pressure_filtered = signal.filtfilt(b, a, self.pressure_raw)
         self.diameter_filtered = signal.filtfilt(b, a, self.diameter_raw)
