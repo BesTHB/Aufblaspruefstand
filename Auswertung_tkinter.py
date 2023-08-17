@@ -332,7 +332,7 @@ class Application:
 
 
     def save_plot_and_data(self):
-        outfile_pdf = self.infile.replace('.txt', f'__ohneAusreisser__bw_ord_{self.slider_bw_ord.get()}__bw_fc_{self.slider_bw_fc.get():.2f}.pdf')
+        outfile_pdf = self.infile.replace('.txt', f'__ohneAusreisser__bw_ord_{self.slider_bw_ord.get()}__bw_fc_{self.slider_bw_fc.get():.2f}__bw_fs_{self.slider_bw_fs.get()}.pdf')
         plt.savefig(outfile_pdf, format='pdf', bbox_inches='tight')
         print(f'Speichere Plot unter {outfile_pdf} ab.')
 
