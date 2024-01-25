@@ -10,8 +10,10 @@ Messungen/
 Dokumentation/Dokumentation.pdf
 Screenshots/
 __pycache__/
+pyvenv/
 py_venv/
 pi_pico/*.uf2
 Aufblaspruefstand_GUI.py
 values.ini
 Fotomassstab*.pdf
+Auswertung.pdf

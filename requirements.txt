@@ -1,9 +1,9 @@
 matplotlib
 opencv-contrib-python
 pandas
+pyarrow
 pyinstaller
-pyqt5
-pyqt5-tools
+pyside6
 pyqtgraph
 pyserial
 rshell

@@ -8,7 +8,7 @@ import pyqtgraph as pg
 import serial
 from datetime import datetime
 from pathlib import Path
-from PyQt5 import QtWidgets, QtGui, QtCore, uic
+from PySide6 import QtWidgets, QtGui, QtCore
 from scipy import signal
 
 
@@ -19,15 +19,15 @@ from scipy import signal
 
 
 class Worker_Video(QtCore.QObject):
-    finished = QtCore.pyqtSignal()
-    signal_change_pixmap = QtCore.pyqtSignal(object)
+    finished = QtCore.Signal()
+    signal_change_pixmap = QtCore.Signal(object)
 
     def __init__(self):
         super().__init__()
         self.run_flag = True
 
 
-    @QtCore.pyqtSlot()
+    @QtCore.Slot()
     def Start(self):
         """
         In dieser Funktion findet die Videoaufnahme statt.
@@ -35,6 +35,8 @@ class Worker_Video(QtCore.QObject):
         """
 
         # Videosignal holen
+        # (standardmaessig wird bei einem PC die USB-Webcam die Videoquelle '0' sein.
+        #  Bei Laptops mit integrierter Webcam wird die USB-Webcam die Videoquelle '1' sein.
         cap = cv2.VideoCapture(0)
 
         # set displayed size of the webcam image/video
@@ -57,8 +59,8 @@ class Worker_Video(QtCore.QObject):
 
 
 class Worker_Druck(QtCore.QObject):
-    finished = QtCore.pyqtSignal()
-    signal_zeit_druck = QtCore.pyqtSignal(object, float)
+    finished = QtCore.Signal()
+    signal_zeit_druck = QtCore.Signal(object, float)
 
     def __init__(self, port):
         super().__init__()
@@ -70,7 +72,7 @@ class Worker_Druck(QtCore.QObject):
         self.v_10 = self.v_in-self.v_0    # voltage at 10psi (90% of v_in)
 
 
-    @QtCore.pyqtSlot()
+    @QtCore.Slot()
     def Start(self):
         while self.run_flag:
             # read 16bit serial value, convert to string as UTF-8, rstrip newline-character and ...
@@ -104,15 +106,18 @@ class Worker_Druck(QtCore.QObject):
 
 
 class Logger_QTextEdit(logging.Handler, QtCore.QObject):
-    signal_appendPlainText = QtCore.pyqtSignal(object)
+    class Emitter(QtCore.QObject):
+        signal_appendPlainText = QtCore.Signal(object)
 
     def __init__(self):
         logging.Handler.__init__(self)
         QtCore.QObject.__init__(self)
 
+        self.emitter = Logger_QTextEdit.Emitter()
+
     def emit(self, log):
         msg = self.format(log)
-        self.signal_appendPlainText.emit(msg)
+        self.emitter.signal_appendPlainText.emit(msg)
 
 
 class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
@@ -138,12 +143,14 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
         # Tauschordner (fuer Infomonitor setzen) --> //IP.IP.IP.IP/Infomonitor_Austausch/  (manuell in values.ini setzen!)
         try:
             self.tauschordner = self.settings.value('tauschordner')
+            if not self.tauschordner:
+                self.tauschordner = './'
         except:
             self.tauschordner = './'
 
         # Log-Handler fuer GUI-Fenster anlegen
         self.gui_loghandler = Logger_QTextEdit()
-        self.gui_loghandler.signal_appendPlainText.connect(self.plainTextEdit_Log.appendPlainText)
+        self.gui_loghandler.emitter.signal_appendPlainText.connect(self.plainTextEdit_Log.appendPlainText)
 
         self.logger = logging.getLogger('./')  # Logger initialisieren (der Logger bekommt als eindeutigen Namen den Namen des Zielordners)
         self.logger.handlers = []              # bisherige Handler des Loggers loeschen
@@ -400,7 +407,7 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
             plt.savefig(outfile_infomonitor, format='pdf', bbox_inches='tight')
             self.logger.info(f'Speichere Plot mit Auswertung in {outfile_infomonitor} ab.')
         except Exception as e:
-            self.logger.error('Plot der Auswertung (fuer Infomonitor) konnte nicht gespeichert werden:\n{e}')
+            self.logger.error(f'Plot der Auswertung (fuer Infomonitor) konnte nicht gespeichert werden:\n{e}')
 
 
     def Screenshot_speichern(self):
