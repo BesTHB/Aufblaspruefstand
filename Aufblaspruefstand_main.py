@@ -16,6 +16,8 @@ from scipy import signal
 
 # TODO:
 # - Code kommentieren
+# - COM-Port und Videoquelle aus values.ini laden
+# - Standard-values.ini anschliessend ins Repo aufnehmen und dann git mitteilen, die Datei nicht mehr zu tracken
 
 
 class Worker_Video(QtCore.QObject):
