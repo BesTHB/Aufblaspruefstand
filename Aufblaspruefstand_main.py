@@ -199,6 +199,11 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
         self.thread_druck = None
         self.dt_serial = 0.1  # Zeitdifferenz zwischen zwei Eingaengen des Druckmesssignals der seriellen Schnittstelle
 
+        # serielle Schnittstelle verbinden und Magnetventil schliessen
+        global ser
+        ser = serial.Serial(self.port, 9600)
+        ser.write(b'c')
+
         # GraphicsLayoutWidget fuer Plot in der GUI
         label_styles = {'color':'r', 'font-size':'12pt'}
         self.plot_GraphicsLayoutWidget.setBackground('w')
@@ -277,9 +282,7 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
         self.verzoegerung_aufblasen = 2  # Sekunden
         self.diameter_written = False
 
-        # serielle Schnittstelle verbinden und Magnetventil oeffnen
-        global ser
-        ser = serial.Serial(self.port, 9600)
+        # Magnetventil oeffnen
         ser.write(b'o')
 
         # initialize lists for time, pressure, diameter and cycle
@@ -345,7 +348,6 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
 
         # serielle Schnittstelle schliessen
         ser.write(b'c')  # sicherheitshalber das Magnetventil (ggf. nochmals) schliessen
-        ser.close()
         return
 
 
@@ -680,6 +682,9 @@ class DieseApp(QtWidgets.QMainWindow, Aufblaspruefstand_GUI.Ui_MainWindow):
         self.settings.setValue('v_min', self.vMinSlider.value())
         self.settings.setValue('v_max', self.vMaxSlider.value())
         self.settings.setValue('area_min', self.minAreaSlider.value())
+
+        # serielle Schnittstelle schliessen
+        ser.close()
 
         event.accept()
 
