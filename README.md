@@ -1,7 +1,7 @@
 ## Installation
 ***Die folgende Anleitung bezieht sich auf die Windows PowerShell***
 
-Virtuelle Python-Umgebung für PyQt5 anlegen
+Virtuelle Python-Umgebung für PySide6 anlegen
 ```
 python -m venv .\py_venv
 ```
@@ -25,26 +25,26 @@ pip install -r requirements.txt
 
 ## Dateien
 - Aufblaspruefstand_GUI.ui:  wird mit Qt Designer geöffnet/editiert und enthält die GUI
-- Aufblaspruefstand_GUI.py:  wird mittels `pyuic5 -x Aufblaspruefstand_GUI.ui -o Aufblaspruefstand_GUI.py` erzeugt und kann anschließend in Aufblaspruefstand_main.py importiert werden
+- Aufblaspruefstand_GUI.py:  wird mittels `pyside6-uic Aufblaspruefstand_GUI.ui -o Aufblaspruefstand_GUI.py` erzeugt und kann anschließend in Aufblaspruefstand_main.py importiert werden
 - Aufblaspruefstand_main.py: hier sind die eigentlichen Funktionen der App implementiert und kann mittels `python Aufblaspruefstand_main.py` ausgeführt werden (venv aktivieren!)
 
 
 ## GUI-Entwicklung
 Der Qt Designer befindet sich unter folgender Adresse und kann ausgeführt werden, ohne dass die virtuelle Python-Umgebung geladen wurde
 ```
-\\PFAD_ZUR\py_venv\Lib\site-packages\qt5_applications\Qt\bin\designer.exe
+\\PFAD_ZUR\py_venv\Lib\site-packages\PySide6\designer.exe
 ```
 
 Eine Qt .ui-Datei wird anschließend zu einer .py-Datei übersetzt
 ```
-pyuic5 -x [...].ui -o [...].py
+pyside6-uic [...].ui -o [...].py
 ```
 
 
 ## App laufen lassen
 Die App kann entweder mit python aus der Kommandozeile (venv aktivieren!) heraus gestartet werden
 ```
-(.\py_venv_pyqt5\Scripts\Activate.ps1)
+(.\py_venv\Scripts\Activate.ps1)
 python Aufblaspruefstand_main.py
 ```
 
