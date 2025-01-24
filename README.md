@@ -41,7 +41,7 @@ pyside6-uic [...].ui -o [...].py
 ```
 
 
-## App laufen lassen
+## App starten
 Die App kann entweder mit python aus der Kommandozeile (venv aktivieren!) heraus gestartet werden
 ```
 (.\py_venv\Scripts\Activate.ps1)
