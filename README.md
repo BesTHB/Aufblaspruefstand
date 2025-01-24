@@ -1,3 +1,5 @@
+[![DOI:10.1016/j.polymertesting.2023.108273](http://img.shields.io/badge/DOI-10.1016/j.polymertesting.2023.108273-1082c2.svg)](https://doi.org/10.1016/j.polymertesting.2023.108273)
+
 ## Installation
 ***Die folgende Anleitung bezieht sich auf die Windows PowerShell***
 
