@@ -1,4 +1,17 @@
-[![DOI:10.1016/j.polymertesting.2023.108273](http://img.shields.io/badge/DOI-10.1016/j.polymertesting.2023.108273-1082c2.svg)](https://doi.org/10.1016/j.polymertesting.2023.108273)
+## *GUI-App zur Messdatenerfassung und -verarbeitung eines Aufblasprüfstands für Elastomerproben (Luftballons)*
+
+Baaser, Becker, *Balloon inflation revisited*, 2023
+
+[![DOI:10.1016/j.polymertesting.2023.108273](http://img.shields.io/badge/DOI-10.1016/j.polymertesting.2023.108273-1082c2.svg)](https://doi.org/10.1016/j.polymertesting.2023.108273) 
+
+Wie es bereits Kinder vom Aufpusten in einen Luftballon wissen, nimmt der zunächst notwendige hohe Druck mit zunehmendem Ballondurchmesser ab.
+Die ursprüngliche Intention dieses Projektes war es daher, diesen Effekt, der aus theoretischer Sicht als Materialinstabilität bekannt ist, zu quantifizieren.
+
+Mit dem einfach gehaltenen Versuchsaufbau zum Aufblasen eines Luftballons können der Druck mittels Druckmessumformer
+und der Durchmesser mittels Bildkorrelation gemessen werden.
+
+Darüber hinaus können weitere Belastungsszenarien realisiert und analysiert werden,
+z.B. zyklisches Be- und Entlasten bei steigenden Lastamplituden, um den sog. *Mullins*-Effekt sichtbar zu machen.
 
 ## Installation
 ***Die folgende Anleitung bezieht sich auf die Windows PowerShell***
